@@ -9,7 +9,7 @@ export function renderCodeBlock(
 	plugin: ExcelTemplateExportPlugin,
 	source: string,
 	el: HTMLElement,
-	ctx: MarkdownPostProcessorContext,
+	_ctx: MarkdownPostProcessorContext,
 ): void {
 	const box = el.createDiv({ cls: "xte-block" });
 	const { compiled, error } = compileSource(source);
@@ -43,15 +43,8 @@ export function renderCodeBlock(
 		});
 	}
 	const buttons = box.createDiv({ cls: "xte-block-buttons" });
-	buttons.createEl("button", { text: "Setup" }).onclick = () => void plugin.openSetup(ctx.sourcePath, blockIndex(ctx, el));
-	buttons.createEl("button", { text: "Ejecutar", cls: "mod-cta" }).onclick = () => void plugin.runDefinition(compiled);
-	buttons.createEl("button", { text: "Validar" }).onclick = () => void plugin.validateDefinition(compiled);
+	buttons.createEl("button", { text: "Importar al gestor de templates", cls: "mod-cta" }).onclick = () => void plugin.importLegacyDefinitions();
+	buttons.createEl("button", { text: "Exportar" }).onclick = () => void plugin.runDefinition(compiled);
+	box.createDiv({ cls: "xte-muted", text: "Los templates ahora se gestionan desde «Templates de Excel» (icono de la barra lateral)." });
 }
 
-/** Index of this block among the note's excel-export blocks. */
-function blockIndex(ctx: MarkdownPostProcessorContext, el: HTMLElement): number {
-	const info = ctx.getSectionInfo(el);
-	if (!info) return 0;
-	const before = info.text.split("\n").slice(0, info.lineStart);
-	return before.filter((l) => /^\s*(`{3,}|~{3,})\s*excel-export\b/.test(l)).length;
-}

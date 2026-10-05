@@ -11,13 +11,17 @@ export type EmptyBlockMode = "remove" | "blank";
 
 export interface RootDef {
 	alias: string;
+	/** Friendly name of the note type, e.g. "Proceso" (UI only). */
+	label?: string;
 	where: string;
 	filter?: string;
 	sort?: string;
 }
 
 export interface RelationDef {
-	/** Backlink relation: candidate notes. */
+	/** Friendly name, e.g. "Interviews" (UI only). */
+	label?: string;
+	/** Backlink relation: candidate notes (optional: all notes). */
 	from?: string;
 	/** Backlink relation: `<field> -> <rootAlias>`. */
 	on?: string;
@@ -31,11 +35,14 @@ export interface OutputDef {
 	folder?: string;
 	filename?: string;
 	sheetName?: string;
+	/** sheet-per-root: the template sheet that is copied once per root (default: the first). */
+	repeatSheet?: string;
 	overwrite?: OverwriteMode;
 }
 
 export interface ExportDefinition {
 	name: string;
+	description?: string;
 	template: string;
 	root: RootDef;
 	mode: ExportMode;
@@ -111,6 +118,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 	};
 
 	const name = str(raw, "name", "", true) ?? "";
+	const description = str(raw, "description", "", false);
 	const template = str(raw, "template", "", true) ?? "";
 
 	let root: RootDef = { alias: "", where: "" };
@@ -121,6 +129,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 		if (alias && !NAME_RE.test(alias)) errors.push(`\`root.alias\` inválido: "${alias}" (usa letras, números, _ o -)`);
 		root = {
 			alias,
+			label: str(raw.root, "label", "root.", false),
 			where: str(raw.root, "where", "root.", true) ?? "",
 			filter: str(raw.root, "filter", "root.", false),
 			sort: str(raw.root, "sort", "root.", false),
@@ -143,6 +152,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 					continue;
 				}
 				const r: RelationDef = {
+					label: str(rdef, "label", where, false),
 					from: str(rdef, "from", where, false),
 					on: str(rdef, "on", where, false),
 					source: str(rdef, "source", where, false),
@@ -151,8 +161,8 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 				};
 				if (r.source) {
 					if (r.from || r.on) errors.push(`\`${where}\`: usa \`source\` o \`from\`+\`on\`, no ambos`);
-				} else if (!r.from || !r.on) {
-					errors.push(`\`${where}\`: falta \`from\` y \`on\` (o \`source\` para una relación derivada)`);
+				} else if (!r.on) {
+					errors.push(`\`${where}\`: falta \`on\` (o \`source\` para una relación derivada)`);
 				}
 				relations[rname] = r;
 			}
@@ -166,6 +176,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 			output.folder = str(raw.output, "folder", "output.", false);
 			output.filename = str(raw.output, "filename", "output.", false);
 			output.sheetName = str(raw.output, "sheetName", "output.", false);
+			output.repeatSheet = str(raw.output, "repeatSheet", "output.", false);
 			output.overwrite = oneOf(raw.output.overwrite, OVERWRITE, "output.overwrite");
 		}
 	}
@@ -206,7 +217,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 	const rows = stringMap("rows");
 
 	if (errors.length) throw new ConfigError(errors);
-	return { name, template, root, mode, relations, output, normalize, emptyBlock, cells, rows };
+	return { name, description, template, root, mode, relations, output, normalize, emptyBlock, cells, rows };
 }
 
 /** Parses all filters/sorts/paths of a validated definition. */

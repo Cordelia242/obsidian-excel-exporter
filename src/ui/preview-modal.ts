@@ -36,9 +36,9 @@ export class PreviewModal extends Modal {
 		const w = built.warnings.length;
 
 		const info = contentEl.createDiv({ cls: "xte-preview-info" });
-		info.createSpan({
-			text: `${n} ${n === 1 ? "archivo" : "archivos"} · ${built.run.roots.length} ${built.run.roots.length === 1 ? "raíz" : "raíces"}`,
-		});
+		const r = built.run.roots.length;
+		const label = built.run.cd.def.root.label || "nota";
+		info.createSpan({ text: `${n} ${n === 1 ? "archivo" : "archivos"} · ${r} ${label}${r === 1 ? "" : "s"}` });
 		if (w) {
 			info.createSpan({ text: " · " });
 			const link = info.createEl("a", { text: `${w} ${w === 1 ? "warning" : "warnings"}`, href: "#" });

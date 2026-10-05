@@ -59,7 +59,7 @@ output: { overwrite: maybe }
 `);
 		expect(errs).toContain('`root.alias` inválido: "mi alias" (usa letras, números, _ o -)');
 		expect(errs).toContain("`mode` inválido: \"per-root\". Valores permitidos: file-per-root, sheet-per-root, single");
-		expect(errs).toContain("`relations.r1.`: falta `from` y `on` (o `source` para una relación derivada)");
+		expect(errs).toContain("`relations.r1.`: falta `on` (o `source` para una relación derivada)");
 		expect(errs).toContain('`output.overwrite` inválido: "maybe". Valores permitidos: ask, overwrite, suffix');
 	});
 

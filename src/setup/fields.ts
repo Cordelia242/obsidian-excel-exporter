@@ -1,26 +1,67 @@
 import { toTemplateText } from "../config/mapping";
-import type { ExportMode } from "../config/schema";
-import { lookupKey, type Runtime, type Scope } from "../graph/context";
+import type { ExportDefinition } from "../config/schema";
 import { iterateCollection, parseCellText, renderTemplate } from "../excel/placeholders";
 import { collectionScope, rootScope, type PreparedRun } from "../export/runner";
+import type { Runtime, Scope } from "../graph/context";
+import { parsePath } from "../graph/path";
 import { isNoteRecord, type NoteRecord } from "../model/note-record";
 import { LinkRef, wrapFrontmatterValue } from "../values/link";
-import { isEmptyValue, normalizeValue, parseIsoDate, scalarToText, starsToNumber, DEFAULT_NORMALIZE } from "../values/normalize";
+import { isEmptyValue, scalarToText } from "../values/normalize";
+import { parseExpression } from "../values/pipes";
+import { propertiesOf, type PropKind } from "./discovery";
 
-export type FieldKind = "value" | "text" | "number" | "date" | "stars" | "link" | "list" | "collection" | "file" | "special" | "group";
+// ------------------------------------------------------------------ labels
 
-/** A field the user can pick in Setup. `expr` is a placeholder path (without braces). */
-export interface FieldNode {
-	label: string;
-	expr: string;
-	kind: FieldKind;
-	sample?: string;
-	/** Lazily computed children (links are navigable, relations list their item fields). */
-	children?: () => FieldNode[];
+export function capitalize(s: string): string {
+	return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 
-const MAX_NOTES = 200;
-const MAX_DEPTH = 3;
+export function rootLabel(def: ExportDefinition): string {
+	return def.root.label || capitalize(def.root.alias);
+}
+
+export function relationLabel(def: ExportDefinition, name: string): string {
+	return def.relations[name]?.label || capitalize(name.replace(/_/g, " "));
+}
+
+/** Friendly name of a path variable (alias, relation or property). */
+export function variableLabel(def: ExportDefinition, name: string): string {
+	if (name.toLowerCase() === def.root.alias.toLowerCase()) return rootLabel(def);
+	const rel = Object.keys(def.relations).find((r) => r.toLowerCase() === name.toLowerCase());
+	return rel ? relationLabel(def, rel) : capitalize(name);
+}
+
+const SPECIAL_LABELS: Record<string, string> = {
+	"@today": "Fecha de hoy",
+	"@now": "Fecha y hora actual",
+	"@exportName": "Nombre del template",
+	"@index": "Nº de fila",
+	"@count": "Total",
+};
+
+const FILE_LABELS: Record<string, string> = {
+	name: "Nombre de la nota",
+	basename: "Nombre de la nota",
+	path: "Ruta",
+	folder: "Carpeta",
+	ctime: "Fecha de creación",
+	mtime: "Última modificación",
+	link: "Link a la nota",
+	ext: "Extensión",
+};
+
+const PIPE_LABELS: Record<string, string> = {
+	count: "cantidad",
+	first: "el primero",
+	stars: "número",
+	raw: "texto original",
+	target: "nombre real",
+	link: "hipervínculo",
+	upper: "MAYÚSCULAS",
+	lower: "minúsculas",
+	date: "fecha como texto",
+	join: "lista",
+};
 
 /** Joins path segments; segments with dots or brackets use `["..."]`. */
 export function pathExpr(segs: string[]): string {
@@ -33,105 +74,109 @@ export function pathExpr(segs: string[]): string {
 	return out;
 }
 
-function sampleText(v: unknown): string {
-	const t = scalarToText(normalizeValue(v, DEFAULT_NORMALIZE));
-	return t.length > 60 ? `${t.slice(0, 57)}…` : t;
+/** Human-readable label for a mapping expression: `proceso.hires | count` → `Proceso › Hires (cantidad)`. */
+export function friendlyLabel(expr: string, def: ExportDefinition): string {
+	const one = (src: string): string => {
+		const { path, pipes } = parseExpression(src);
+		let segs: string[];
+		try {
+			segs = parsePath(path);
+		} catch {
+			return src;
+		}
+		const parts: string[] = [];
+		for (let i = 0; i < segs.length; i++) {
+			const s = segs[i];
+			if (i === 0 && s.startsWith("@")) parts.push(SPECIAL_LABELS[s] ?? s);
+			else if (s === "file" && i + 1 < segs.length) {
+				parts.push(FILE_LABELS[segs[i + 1]] ?? segs[i + 1]);
+				i++;
+			} else parts.push(i === 0 || def.relations[s] ? variableLabel(def, s) : s);
+		}
+		const fmt = pipes.filter((p) => p.name !== "default").map((p) => PIPE_LABELS[p.name] ?? p.name);
+		return parts.join(" › ") + (fmt.length ? ` (${fmt.join(", ")})` : "");
+	};
+	if (!expr.includes("{{")) return one(expr);
+	return expr.replace(/\{\{([^{}]*)\}\}/g, (_m, inner: string) => `[${one(inner.trim())}]`);
 }
 
-function flatValues(v: unknown): unknown[] {
-	return Array.isArray(v) ? v.flatMap(flatValues) : [v];
+// ------------------------------------------------------------------ expression <-> parts
+
+export interface ExprParts {
+	segs: string[];
+	/** Format pipe text (e.g. `count`, `date:"dd/MM/yyyy"`), "" when none. */
+	format: string;
+	/** Value shown when empty (`default` pipe), "" when none. */
+	fallback: string;
 }
 
-function kindOf(values: unknown[]): FieldKind {
-	const atoms = values.flatMap(flatValues).filter((x) => !isEmptyValue(x));
-	if (!atoms.length) return "value";
-	const isList = values.some((v) => Array.isArray(v) && v.length > 1);
-	if (atoms.some((a) => a instanceof LinkRef)) return isList ? "list" : "link";
-	if (isList) return "list";
-	if (atoms.every((a) => typeof a === "number")) return "number";
-	if (atoms.every((a) => typeof a === "string" && parseIsoDate(a))) return "date";
-	if (atoms.every((a) => typeof a === "string" && starsToNumber(a) !== null && /⭐/.test(a))) return "stars";
-	return "text";
+function pipeText(name: string, arg?: string): string {
+	return arg === undefined ? name : `${name}:"${arg.replace(/"/g, '\\"')}"`;
+}
+
+/** Splits a simple expression into path + one format + fallback. Null when it is more complex (mixed text…). */
+export function parseExprParts(expr: string): ExprParts | null {
+	if (!expr.trim() || expr.includes("{{")) return null;
+	const { path, pipes } = parseExpression(expr);
+	let segs: string[];
+	try {
+		segs = parsePath(path);
+	} catch {
+		return null;
+	}
+	const fallbackPipe = pipes.find((p) => p.name === "default");
+	const formats = pipes.filter((p) => p.name !== "default");
+	if (formats.length > 1) return null;
+	return {
+		segs,
+		format: formats[0] ? pipeText(formats[0].name, formats[0].arg) : "",
+		fallback: fallbackPipe?.arg ?? "",
+	};
+}
+
+export function composeExpr(parts: ExprParts): string {
+	let e = pathExpr(parts.segs);
+	if (parts.format) e += ` | ${parts.format}`;
+	if (parts.fallback) e += ` | ${pipeText("default", parts.fallback)}`;
+	return e;
+}
+
+// ------------------------------------------------------------------ sources and fields
+
+export type FieldKind = PropKind | "note" | "collection" | "file" | "special";
+
+export interface Source {
+	id: string;
+	label: string;
+	hint: string;
+	base: string[];
+	/** The source yields several values (a relation outside a repeated row, or all roots). */
+	isList: boolean;
+	notes: NoteRecord[];
+	kind: "row" | "root" | "relation" | "special";
+}
+
+export interface FieldEntry {
+	label: string;
+	/** Full path (base + trail + key). */
+	segs: string[];
+	kind: FieldKind;
+	sample: string;
+	/** Can be opened to see the fields of the linked notes. */
+	navigable: boolean;
+	isList: boolean;
+}
+
+export interface CellContext {
+	run: PreparedRun;
+	perRoot: boolean;
+	rowPath?: string[];
+	sampleIndex?: number;
 }
 
 function uniqueNotes(notes: NoteRecord[]): NoteRecord[] {
 	const seen = new Set<string>();
 	return notes.filter((n) => (seen.has(n.path) ? false : (seen.add(n.path), true)));
-}
-
-/** Fields of a set of notes reachable at `prefix` (frontmatter keys, file.*, relations). */
-export function noteFields(prefix: string[], notes: NoteRecord[], rt: Runtime, depth = 0): FieldNode[] {
-	const sample = notes.slice(0, MAX_NOTES);
-	const out: FieldNode[] = [];
-
-	// Relations (only roots have them).
-	const relNames = new Map<string, NoteRecord[]>();
-	for (const n of sample) {
-		for (const [name, items] of rt.relationsOf(n) ?? []) relNames.set(name, [...(relNames.get(name) ?? []), ...items]);
-	}
-	for (const [name, items] of relNames) {
-		const first = rt.relationsOf(sample[0])?.get(name)?.length ?? 0;
-		const segs = [...prefix, name];
-		out.push({
-			label: name,
-			expr: pathExpr(segs),
-			kind: "collection",
-			sample: `${first} ${first === 1 ? "elemento" : "elementos"} en la muestra`,
-			children: depth < MAX_DEPTH ? () => noteFields(segs, uniqueNotes(items), rt, depth + 1) : undefined,
-		});
-	}
-
-	// Frontmatter keys, first-seen casing.
-	const keys = new Map<string, string>();
-	for (const n of sample) for (const k of Object.keys(n.frontmatter)) if (!keys.has(k.toLowerCase())) keys.set(k.toLowerCase(), k);
-	const sortedKeys = [...keys.values()].sort((a, b) => a.localeCompare(b));
-	for (const key of sortedKeys) {
-		const values = sample
-			.map((n) => {
-				const [found, v] = lookupKey(n.frontmatter, key);
-				return found ? wrapFrontmatterValue(v, n.path) : undefined;
-			})
-			.filter((v) => !isEmptyValue(v));
-		const segs = [...prefix, key];
-		const kind = kindOf(values);
-		const node: FieldNode = { label: key, expr: pathExpr(segs), kind, sample: values.length ? sampleText(values[0]) : "(vacío)" };
-		if ((kind === "link" || kind === "list") && depth < MAX_DEPTH) {
-			const links = values.flatMap(flatValues).filter((v): v is LinkRef => v instanceof LinkRef);
-			node.children = () => {
-				const targets = uniqueNotes(links.map((l) => rt.resolveLink(l, false)).filter((n): n is NoteRecord => !!n));
-				return targets.length ? noteFields(segs, targets, rt, depth + 1) : [];
-			};
-		}
-		out.push(node);
-	}
-
-	const first = sample[0];
-	const fileSample = first ? rt.fileInfo(first) : undefined;
-	out.push({
-		label: "Archivo (file.*)",
-		expr: pathExpr([...prefix, "file"]),
-		kind: "group",
-		children: () =>
-			(["name", "path", "folder", "ctime", "mtime", "link"] as const).map((p) => ({
-				label: `file.${p}`,
-				expr: pathExpr([...prefix, "file", p]),
-				kind: "file" as const,
-				sample: fileSample ? sampleText(fileSample[p]) : undefined,
-			})),
-	});
-	return out;
-}
-
-export interface FieldContext {
-	run: PreparedRun;
-	/** Whether the sheet is filled once per root (file-per-root, or the first sheet of sheet-per-root). */
-	perRoot: boolean;
-	/** Collection path of the row being edited, if the row repeats. */
-	rowPath?: string[];
-}
-
-export function isPerRootSheet(mode: ExportMode, sheetIndex: number): boolean {
-	return mode === "file-per-root" || (mode === "sheet-per-root" && sheetIndex === 0);
 }
 
 /** The scope a sheet is filled with, using one root as sample. */
@@ -141,13 +186,17 @@ export function baseScope(run: PreparedRun, perRoot: boolean, sampleIndex = 0): 
 	return root ? rootScope(run, root, sampleIndex) : null;
 }
 
-/** Notes bound to each variable of a repeated row, across all roots (for field discovery). */
-function rowVariableNotes(ctx: FieldContext): Map<string, NoteRecord[]> {
+/** Scope of the first element of a repeated row (or the base scope). */
+export function rowSampleScope(base: Scope, rowPath: string[] | undefined, rt: Runtime): Scope | null {
+	if (!rowPath) return base;
+	return iterateCollection(rowPath, base, rt)?.[0] ?? null;
+}
+
+/** Notes bound to each variable of a repeated row, across all roots. */
+function rowVariableNotes(ctx: CellContext): Map<string, NoteRecord[]> {
 	const out = new Map<string, NoteRecord[]>();
 	if (!ctx.rowPath) return out;
-	const scopes: Scope[] = ctx.perRoot
-		? ctx.run.roots.slice(0, MAX_NOTES).map((r, i) => rootScope(ctx.run, r, i))
-		: [collectionScope(ctx.run)];
+	const scopes: Scope[] = ctx.perRoot ? ctx.run.roots.slice(0, 200).map((r, i) => rootScope(ctx.run, r, i)) : [collectionScope(ctx.run)];
 	for (const scope of scopes) {
 		for (const item of iterateCollection(ctx.rowPath, scope, ctx.run.rt) ?? []) {
 			for (const name of ctx.rowPath) {
@@ -161,73 +210,237 @@ function rowVariableNotes(ctx: FieldContext): Map<string, NoteRecord[]> {
 	return out;
 }
 
-/** Top-level field tree for a cell (§ Setup). */
-export function contextFields(ctx: FieldContext): FieldNode[] {
+/** Where a cell's data can come from, most relevant first. */
+export function cellSources(ctx: CellContext): Source[] {
 	const { run } = ctx;
-	const alias = run.cd.def.root.alias;
-	const rt = run.rt;
-	const groups: FieldNode[] = [];
+	const def = run.cd.def;
+	const alias = def.root.alias;
+	const out: Source[] = [];
+	const rowVars = rowVariableNotes(ctx);
+	const rootBoundByRow = !!ctx.rowPath && ctx.rowPath[0].toLowerCase() === alias.toLowerCase();
 
 	if (ctx.rowPath) {
-		const vars = rowVariableNotes(ctx);
 		for (const name of [...ctx.rowPath].reverse()) {
-			const notes = vars.get(name) ?? [];
-			groups.push({
-				label: `Fila: cada ${name}`,
-				expr: name,
-				kind: "group",
-				sample: `${notes.length} notas`,
-				children: () => [
-					{ label: `${name} (nombre de la nota)`, expr: name, kind: "link", sample: notes[0]?.basename },
-					...noteFields([name], notes, rt),
-				],
+			if (name.toLowerCase() === alias.toLowerCase()) continue;
+			out.push({
+				id: `row:${name}`,
+				label: `${variableLabel(def, name)} de esta fila`,
+				hint: "Cambia en cada fila repetida",
+				base: [name],
+				isList: false,
+				notes: rowVars.get(name) ?? [],
+				kind: "row",
 			});
 		}
 	}
 
-	const roots = run.roots;
-	const rootIsItem = ctx.perRoot || (ctx.rowPath && ctx.rowPath[0].toLowerCase() === alias.toLowerCase());
-	if (!(ctx.rowPath && ctx.rowPath[0].toLowerCase() === alias.toLowerCase())) {
-		groups.push({
-			label: rootIsItem ? `${alias} (nota raíz)` : `${alias} (todas las raíces)`,
-			expr: alias,
-			kind: rootIsItem ? "group" : "collection",
-			sample: rootIsItem ? roots[0]?.basename : `${roots.length} notas`,
-			children: () => [
-				{ label: `${alias} (nombre de la nota)`, expr: alias, kind: "link", sample: roots[0]?.basename },
-				...noteFields([alias], roots, rt),
-			],
+	const rootIsOne = ctx.perRoot || rootBoundByRow;
+	out.push({
+		id: "root",
+		label: rootIsOne ? rootLabel(def) : `Todos los ${rootLabel(def)}`,
+		hint: rootIsOne ? (rootBoundByRow ? "El de esta fila" : `El ${rootLabel(def).toLowerCase()} que se exporta`) : "Todas las notas exportadas",
+		base: [alias],
+		isList: !rootIsOne,
+		notes: run.roots,
+		kind: "root",
+	});
+
+	if (rootIsOne) {
+		for (const rel of run.cd.relations) {
+			const items = uniqueNotes(run.roots.flatMap((r) => run.rt.relationsOf(r)?.get(rel.name) ?? []));
+			out.push({
+				id: `rel:${rel.name}`,
+				label: `${relationLabel(def, rel.name)} (todas)`,
+				hint: `Todas las del ${rootLabel(def).toLowerCase()}: contar, listar…`,
+				base: [alias, rel.name],
+				isList: true,
+				notes: items,
+				kind: "relation",
+			});
+		}
+	}
+
+	out.push({ id: "special", label: "Fecha y otros", hint: "Fecha de hoy, número de fila…", base: [], isList: false, notes: [], kind: "special" });
+	return out;
+}
+
+function atoms(v: unknown): unknown[] {
+	return Array.isArray(v) ? v.flatMap(atoms) : [v];
+}
+
+/** Notes reached from `notes` by following `seg` (a relation or a link property). */
+function followSegment(notes: NoteRecord[], seg: string, rt: Runtime): { notes: NoteRecord[]; list: boolean } {
+	const out: NoteRecord[] = [];
+	let list = false;
+	for (const n of notes) {
+		const rel = rt.relationsOf(n)?.get(seg);
+		if (rel) {
+			out.push(...rel);
+			list = true;
+			continue;
+		}
+		const key = Object.keys(n.frontmatter).find((k) => k.toLowerCase() === seg.toLowerCase());
+		if (key === undefined) continue;
+		const v = wrapFrontmatterValue(n.frontmatter[key], n.path);
+		if (Array.isArray(v) && v.length > 1) list = true;
+		for (const a of atoms(v)) {
+			if (a instanceof LinkRef) {
+				const t = rt.resolveLink(a, false);
+				if (t) out.push(t);
+			}
+		}
+	}
+	return { notes: uniqueNotes(out), list };
+}
+
+/** Fields visible in the browser for a source and a navigation trail (segments after the base). */
+export function fieldsAt(source: Source, trail: string[], ctx: CellContext): FieldEntry[] {
+	const { run } = ctx;
+	const rt = run.rt;
+	if (source.kind === "special") {
+		const items: Array<[string, FieldKind, string]> = [
+			["@today", "date", scalarToText(rt.today)],
+			["@now", "date", ""],
+			["@exportName", "text", run.cd.def.name],
+		];
+		if (ctx.rowPath) items.unshift(["@index", "number", "1, 2, 3…"]);
+		items.push(["@count", "number", ctx.rowPath ? "Total de filas" : "Total de notas exportadas"]);
+		return items.map(([e, kind, sample]) => ({ label: SPECIAL_LABELS[e], segs: [e], kind, sample, navigable: false, isList: false }));
+	}
+
+	let notes = source.notes;
+	let isList = source.isList;
+	for (const seg of trail) {
+		const next = followSegment(notes, seg, rt);
+		notes = next.notes;
+		isList = isList || next.list;
+	}
+	const prefix = [...source.base, ...trail];
+	const out: FieldEntry[] = [];
+	out.push({
+		label: "Nombre de la nota",
+		segs: prefix,
+		kind: "note",
+		sample: notes.slice(0, 3).map((n) => n.basename).join(", "),
+		navigable: false,
+		isList,
+	});
+
+	const relNames = new Set<string>();
+	for (const n of notes.slice(0, 200)) for (const name of rt.relationsOf(n)?.keys() ?? []) relNames.add(name);
+	for (const name of relNames) {
+		if (source.kind === "relation" && trail.length === 0 && name === source.base[1]) continue;
+		const first = notes[0] ? rt.relationsOf(notes[0])?.get(name)?.length ?? 0 : 0;
+		out.push({
+			label: relationLabel(run.cd.def, name),
+			segs: [...prefix, name],
+			kind: "collection",
+			sample: `${first} en la muestra`,
+			navigable: true,
+			isList: true,
 		});
 	}
 
-	const specials: FieldNode[] = [
-		{ label: "@today (fecha de hoy)", expr: "@today", kind: "special", sample: scalarToText(rt.today) },
-		{ label: "@now (fecha y hora)", expr: "@now", kind: "special" },
-		{ label: "@exportName (nombre del export)", expr: "@exportName", kind: "special", sample: run.cd.def.name },
-		{ label: "@count (cantidad)", expr: "@count", kind: "special" },
-	];
-	if (ctx.rowPath) specials.unshift({ label: "@index (nº de fila 1, 2, 3…)", expr: "@index", kind: "special" });
-	groups.push({ label: "Variables especiales", expr: "@", kind: "group", children: () => specials });
-	return groups;
+	for (const p of propertiesOf(notes)) {
+		const segs = [...prefix, p.key];
+		const list = isList || p.kind === "list";
+		const linkish = p.kind === "link" || (p.kind === "list" && followSegment(notes.slice(0, 50), p.key, rt).notes.length > 0);
+		out.push({ label: p.key, segs, kind: p.kind, sample: p.sample, navigable: linkish, isList: list });
+	}
+
+	const sample = notes[0] ? rt.fileInfo(notes[0]) : undefined;
+	for (const f of ["ctime", "mtime", "folder", "link"] as const) {
+		out.push({
+			label: FILE_LABELS[f],
+			segs: [...prefix, "file", f],
+			kind: f === "ctime" || f === "mtime" ? "date" : "file",
+			sample: sample ? scalarToText(sample[f] as never) : "",
+			navigable: false,
+			isList,
+		});
+	}
+	return out;
 }
+
+/** Trail labels for the breadcrumb. */
+export function trailLabels(source: Source, trail: string[], def: ExportDefinition): string[] {
+	return [source.label, ...trail.map((t) => (def.relations[t] ? relationLabel(def, t) : t))];
+}
+
+// ------------------------------------------------------------------ formats
+
+export interface FormatOption {
+	pipe: string;
+	label: string;
+}
+
+/** "How to show it" options that make sense for a field. */
+export function formatOptions(kind: FieldKind, isList: boolean): FormatOption[] {
+	if (isList || kind === "collection") {
+		return [
+			{ pipe: "", label: "Todos, separados por coma" },
+			{ pipe: "count", label: "Cantidad (número)" },
+			{ pipe: "first", label: "Solo el primero" },
+			{ pipe: 'join:"; "', label: "Todos, separados por ;" },
+		];
+	}
+	switch (kind) {
+		case "note":
+		case "link":
+			return [
+				{ pipe: "", label: "Nombre (como se ve en Obsidian)" },
+				{ pipe: "target", label: "Nombre real de la nota" },
+				{ pipe: "link", label: "Nombre con hipervínculo a Obsidian" },
+			];
+		case "date":
+			return [
+				{ pipe: "", label: "Fecha de Excel (usa el formato de la celda)" },
+				{ pipe: 'date:"dd/MM/yyyy"', label: "Texto 31/12/2026" },
+				{ pipe: 'date:"yyyy-MM-dd"', label: "Texto 2026-12-31" },
+			];
+		case "stars":
+			return [
+				{ pipe: "", label: "Número (⭐⭐⭐ → 3)" },
+				{ pipe: "raw", label: "Estrellas tal cual" },
+			];
+		case "text":
+			return [
+				{ pipe: "", label: "Tal cual" },
+				{ pipe: "upper", label: "MAYÚSCULAS" },
+				{ pipe: "lower", label: "minúsculas" },
+			];
+		default:
+			return [{ pipe: "", label: "Tal cual" }];
+	}
+}
+
+// ------------------------------------------------------------------ repeat options + preview
 
 export interface CollectionOption {
 	value: string;
 	label: string;
+	count: number;
 }
 
-/** Collections a row can repeat over. */
-export function collectionOptions(run: PreparedRun, perRoot: boolean): CollectionOption[] {
-	const { alias } = run.cd.def.root;
+/** Collections a row can repeat over, with the count for the sample root. */
+export function collectionOptions(run: PreparedRun, perRoot: boolean, sampleIndex = 0): CollectionOption[] {
+	const def = run.cd.def;
+	const { alias } = def.root;
+	const base = baseScope(run, perRoot, sampleIndex);
+	const count = (path: string) => (base ? iterateCollection(parsePath(path), base, run.rt)?.length ?? 0 : 0);
 	const rels = run.cd.relations.map((r) => r.name);
-	if (perRoot) return rels.map((r) => ({ value: r, label: `cada elemento de "${r}"` }));
+	if (perRoot) return rels.map((r) => ({ value: r, label: relationLabel(def, r), count: count(r) }));
 	return [
-		{ value: alias, label: `cada ${alias} (una fila por nota raíz)` },
-		...rels.map((r) => ({ value: `${alias}.${r}`, label: `cada "${r}" de cada ${alias} (flatten)` })),
+		{ value: alias, label: `${rootLabel(def)} (una fila por nota exportada)`, count: count(alias) },
+		...rels.map((r) => ({
+			value: `${alias}.${r}`,
+			label: `${relationLabel(def, r)} de todos los ${rootLabel(def)}`,
+			count: count(`${alias}.${r}`),
+		})),
 	];
 }
 
-/** Evaluates a mapping expression against a sample scope, for the Setup preview. */
+/** Evaluates a mapping expression against a sample scope. */
 export function previewExpression(expr: string, scope: Scope, run: PreparedRun): string {
 	const tpl = parseCellText(toTemplateText(expr));
 	if (!tpl) return expr;
@@ -236,8 +449,6 @@ export function previewExpression(expr: string, scope: Scope, run: PreparedRun):
 	return scalarToText(r.value);
 }
 
-/** Scope of the first element of a repeated row (or the base scope). */
-export function rowSampleScope(base: Scope, rowPath: string[] | undefined, rt: Runtime): Scope | null {
-	if (!rowPath) return base;
-	return iterateCollection(rowPath, base, rt)?.[0] ?? null;
+export function isEmptyPreview(text: string): boolean {
+	return isEmptyValue(text);
 }

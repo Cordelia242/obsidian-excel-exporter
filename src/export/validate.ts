@@ -7,7 +7,7 @@ import { KNOWN_PIPES } from "../values/pipes";
 import { iterateCollection } from "../excel/placeholders";
 import { scanWorksheet } from "../excel/scanner";
 import { rowRepeatsFor } from "../excel/mapping";
-import { collectionScope, loadPreparedTemplate, loadTemplate, prepareRun, rootScope, type RunOptions } from "./runner";
+import { collectionScope, loadPreparedTemplate, sheetIsPerRoot, loadTemplate, prepareRun, rootScope, type RunOptions } from "./runner";
 
 export type CheckStatus = "ok" | "unknown" | "unresolved" | "no-sample" | "error";
 
@@ -50,8 +50,8 @@ export async function validateTemplate(
 	if (cd.def.mode !== "single" && run.roots.length) result.sampleRoot = run.roots[0].path;
 	if (!run.roots.length) result.issues.push("Ninguna nota cumple el filtro de la raíz: no hay datos de muestra");
 
-	wb.worksheets.forEach((ws, sheetIdx) => {
-		const perRoot = cd.def.mode === "file-per-root" || (cd.def.mode === "sheet-per-root" && sheetIdx === 0);
+	wb.worksheets.forEach((ws) => {
+		const perRoot = sheetIsPerRoot(cd.def, wb, ws);
 		const base: Scope | null = perRoot ? (run.roots.length ? rootScope(run, run.roots[0], 0) : null) : collectionScope(run);
 		const scan = scanWorksheet(ws, rowRepeatsFor(cd.mapping, ws, firstSheet));
 		for (const i of scan.issues) result.issues.push(`${ws.name}!${i.address}: ${i.message}`);

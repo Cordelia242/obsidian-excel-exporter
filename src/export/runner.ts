@@ -19,6 +19,8 @@ export interface RunOptions {
 	settings?: Partial<ExportSettings>;
 	/** Export only this note as root (command "Exportar nota activa"): `where` is checked, `filter` ignored. */
 	activeNotePath?: string;
+	/** Export exactly these notes as roots (picker in the export dialog), in this order; `filter` is ignored. */
+	rootPaths?: string[];
 	now?: Date;
 	/** Called when `overwrite: ask` and the output exists. Defaults to "suffix". */
 	confirmOverwrite?: (path: string) => Promise<OverwriteAnswer>;
@@ -56,15 +58,19 @@ export function prepareRun(cd: CompiledDefinition, adapter: VaultAdapter, option
 	const notes = adapter.listNotes();
 
 	let roots: NoteRecord[];
-	if (options.activeNotePath) {
-		const note = notes.find((n) => n.path === options.activeNotePath);
-		if (!note) throw new Error(`No se encontró la nota "${options.activeNotePath}"`);
-		if (!evaluate(cd.where, note, rt)) {
-			report.warn("skipped-note", `La nota no cumple root.where (${cd.def.root.where}); se exporta igual`, {
-				note: note.path,
-			});
+	const explicit = options.rootPaths ?? (options.activeNotePath ? [options.activeNotePath] : undefined);
+	if (explicit) {
+		roots = [];
+		for (const path of explicit) {
+			const note = notes.find((n) => n.path === path);
+			if (!note) throw new Error(`No se encontró la nota "${path}"`);
+			if (!evaluate(cd.where, note, rt)) {
+				report.warn("skipped-note", `La nota no cumple root.where (${cd.def.root.where}); se exporta igual`, {
+					note: note.path,
+				});
+			}
+			roots.push(note);
 		}
-		roots = [note];
 	} else {
 		roots = notes.filter((n) => evaluate(cd.where, n, rt));
 		if (cd.filter) {
@@ -188,6 +194,19 @@ export async function loadTemplate(adapter: VaultAdapter, path: string): Promise
 	return adapter.readBinary(path);
 }
 
+/** The sheet copied once per root in sheet-per-root mode. */
+export function repeatedSheet(wb: Workbook, name: string | undefined): Worksheet {
+	const sheets = wb.worksheets;
+	return (name && sheets.find((ws) => ws.name.toLowerCase() === name.toLowerCase())) || sheets[0];
+}
+
+/** Whether a template sheet is filled once per root (vs once with the whole collection). */
+export function sheetIsPerRoot(def: CompiledDefinition["def"], wb: Workbook, ws: Worksheet): boolean {
+	if (def.mode === "file-per-root") return true;
+	if (def.mode === "single") return false;
+	return repeatedSheet(wb, def.output.repeatSheet) === ws;
+}
+
 export interface BuiltOutput {
 	/** File name (not yet sanitized/deduplicated against the vault). */
 	fileName: string;
@@ -234,7 +253,8 @@ export async function buildExport(cd: CompiledDefinition, adapter: VaultAdapter,
 		}
 	} else if (def.mode === "sheet-per-root") {
 		const wb = await loadPreparedTemplate(template, cd, run);
-		const [tplSheet, ...others] = wb.worksheets;
+		const tplSheet = repeatedSheet(wb, def.output.repeatSheet);
+		const others = wb.worksheets.filter((ws) => ws !== tplSheet);
 		const tplRepeats = repeats(wb, tplSheet);
 		const otherRepeats = new Map(others.map((ws) => [ws, repeats(wb, ws)]));
 		const taken = new Set(others.map((ws) => ws.name.toLowerCase()));

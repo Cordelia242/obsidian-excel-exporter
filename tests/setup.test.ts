@@ -8,12 +8,17 @@ import { buildExport, prepareRun, runExport, writeExport } from "../src/export/r
 import { validateTemplate } from "../src/export/validate";
 import {
 	baseScope,
+	cellSources,
 	collectionOptions,
-	contextFields,
+	composeExpr,
+	fieldsAt,
+	formatOptions,
+	friendlyLabel,
+	parseExprParts,
 	pathExpr,
 	previewExpression,
 	rowSampleScope,
-	type FieldNode,
+	type FieldEntry,
 } from "../src/setup/fields";
 import { definition, MAPPING_YAML, NOW, procesoBlankTemplate, procesoTemplate, PROCESO_DEF, readXlsx, vault } from "./helpers";
 
@@ -135,55 +140,91 @@ describe("worksheetToGrid", () => {
 	});
 });
 
-describe("field discovery", () => {
-	const find = (nodes: FieldNode[], label: string) => nodes.find((n) => n.label === label);
+describe("field browser (Setup)", () => {
+	const run = () => prepareRun(definition(BLANK_DEF), vault(), { now: NOW });
+	const byLabel = (entries: FieldEntry[], label: string) => entries.find((e) => e.label === label);
 
-	it("lists root properties, relations and navigable links with samples", () => {
-		const cd = definition(BLANK_DEF);
-		const run = prepareRun(cd, vault(), { now: NOW });
-		const groups = contextFields({ run, perRoot: true });
-		expect(groups.map((g) => g.label)).toEqual(["proceso (nota raíz)", "Variables especiales"]);
-		const root = groups[0].children!();
-		expect(find(root, "status")).toMatchObject({ expr: "proceso.status", kind: "text", sample: "Open" });
-		expect(find(root, "quantity")).toMatchObject({ kind: "number" });
-		expect(find(root, "created")).toMatchObject({ kind: "date", sample: "2026-03-01" });
-		expect(find(root, "role")).toMatchObject({ kind: "link", sample: "Back" });
-		const interviews = find(root, "interviews")!;
-		expect(interviews).toMatchObject({ expr: "proceso.interviews", kind: "collection", sample: "3 elementos en la muestra" });
-		const itemFields = interviews.children!();
-		expect(find(itemFields, "tech rating")).toMatchObject({ expr: "proceso.interviews.tech rating", kind: "stars" });
-		const interviewed = find(itemFields, "interviewed")!;
-		expect(interviewed.kind).toBe("link");
-		expect(find(interviewed.children!(), "linkedin")?.expr).toBe("proceso.interviews.interviewed.linkedin");
+	it("lists sources: the root, each relation, and dates", () => {
+		const r = run();
+		const sources = cellSources({ run: r, perRoot: true });
+		expect(sources.map((x) => [x.label, x.base.join("."), x.isList])).toEqual([
+			["Proceso", "proceso", false],
+			["Interviews (todas)", "proceso.interviews", true],
+			["Hires (todas)", "proceso.hires", true],
+			["Fecha y otros", "", false],
+		]);
 	});
 
-	it("offers the row element when the row repeats", () => {
-		const run = prepareRun(definition(BLANK_DEF), vault(), { now: NOW });
-		const groups = contextFields({ run, perRoot: true, rowPath: ["interviews"] });
-		expect(groups[0].label).toBe("Fila: cada interviews");
-		const fields = groups[0].children!();
-		expect(fields[0]).toMatchObject({ expr: "interviews", kind: "link" });
-		expect(find(fields, "decision")?.expr).toBe("interviews.decision");
-		expect(groups[groups.length - 1].children!()[0].expr).toBe("@index");
+	it("in a repeated row the row element comes first", () => {
+		const r = run();
+		const sources = cellSources({ run: r, perRoot: true, rowPath: ["interviews"] });
+		expect(sources[0]).toMatchObject({ label: "Interviews de esta fila", base: ["interviews"], isList: false, kind: "row" });
+		expect(sources[0].notes).toHaveLength(3);
+		const fields = fieldsAt(sources[0], [], { run: r, perRoot: true, rowPath: ["interviews"] });
+		expect(fields[0]).toMatchObject({ label: "Nombre de la nota", segs: ["interviews"], kind: "note" });
+		expect(byLabel(fields, "decision")).toMatchObject({ segs: ["interviews", "decision"], kind: "text", isList: false });
+		expect(byLabel(fields, "tech rating")?.kind).toBe("stars");
+		const interviewed = byLabel(fields, "interviewed")!;
+		expect(interviewed).toMatchObject({ kind: "link", navigable: true });
+		const persona = fieldsAt(sources[0], ["interviewed"], { run: r, perRoot: true, rowPath: ["interviews"] });
+		expect(byLabel(persona, "linkedin")).toMatchObject({ segs: ["interviews", "interviewed", "linkedin"], kind: "text" });
+		expect(byLabel(persona, "stack")?.kind).toBe("list");
+		const special = fieldsAt(sources[sources.length - 1], [], { run: r, perRoot: true, rowPath: ["interviews"] });
+		expect(special.map((e) => e.segs[0])).toEqual(["@index", "@today", "@now", "@exportName", "@count"]);
 	});
 
-	it("collection options depend on the mode", () => {
-		const run = prepareRun(definition(BLANK_DEF), vault(), { now: NOW });
-		expect(collectionOptions(run, true).map((o) => o.value)).toEqual(["interviews", "hires"]);
-		expect(collectionOptions(run, false).map((o) => o.value)).toEqual(["proceso", "proceso.interviews", "proceso.hires"]);
+	it("root fields include relations, properties with examples and file info", () => {
+		const r = run();
+		const [root] = cellSources({ run: r, perRoot: true });
+		const fields = fieldsAt(root, [], { run: r, perRoot: true });
+		expect(byLabel(fields, "Interviews")).toMatchObject({ kind: "collection", segs: ["proceso", "interviews"], isList: true });
+		expect(byLabel(fields, "status")).toMatchObject({ kind: "text", sample: "Open" });
+		expect(byLabel(fields, "created")?.kind).toBe("date");
+		expect(byLabel(fields, "Fecha de creación")?.segs).toEqual(["proceso", "file", "ctime"]);
+	});
+
+	it("single mode: all roots are a list, rows bind the root", () => {
+		const r = prepareRun(definition(BLANK_DEF.replace("mode: file-per-root", "mode: single")), vault(), { now: NOW });
+		expect(cellSources({ run: r, perRoot: false })[0]).toMatchObject({ label: "Todos los Proceso", isList: true });
+		const inRow = cellSources({ run: r, perRoot: false, rowPath: ["proceso", "interviews"] });
+		expect(inRow.map((x) => x.label)).toEqual(["Interviews de esta fila", "Proceso", "Interviews (todas)", "Hires (todas)", "Fecha y otros"]);
+	});
+
+	it("format options depend on the kind of field", () => {
+		expect(formatOptions("collection", true).map((f) => f.pipe)).toEqual(["", "count", "first", 'join:"; "']);
+		expect(formatOptions("date", false).map((f) => f.pipe)).toEqual(["", 'date:"dd/MM/yyyy"', 'date:"yyyy-MM-dd"']);
+		expect(formatOptions("stars", false).map((f) => f.pipe)).toEqual(["", "raw"]);
+		expect(formatOptions("link", false).map((f) => f.pipe)).toEqual(["", "target", "link"]);
+		expect(formatOptions("number", false)).toHaveLength(1);
+	});
+
+	it("expressions <-> parts and friendly labels", () => {
+		const def = definition(BLANK_DEF).def;
+		expect(parseExprParts('proceso.hires | count | default:"-"')).toEqual({ segs: ["proceso", "hires"], format: "count", fallback: "-" });
+		expect(parseExprParts("Rol: {{proceso.role}}")).toBeNull();
+		expect(composeExpr({ segs: ["interviews", "tech rating"], format: "", fallback: "" })).toBe("interviews.tech rating");
+		expect(friendlyLabel("proceso.hires | count", def)).toBe("Proceso › Hires (cantidad)");
+		expect(friendlyLabel("interviews.interviewed.linkedin", def)).toBe("Interviews › interviewed › linkedin");
+		expect(friendlyLabel("proceso.file.ctime", def)).toBe("Proceso › Fecha de creación");
+		expect(friendlyLabel("@today", def)).toBe("Fecha de hoy");
+		expect(friendlyLabel("Rol: {{proceso.role}}", def)).toBe("Rol: [Proceso › role]");
+	});
+
+	it("collection options with counts for the sample", () => {
+		const r = run();
+		expect(collectionOptions(r, true)).toEqual([
+			{ value: "interviews", label: "Interviews", count: 3 },
+			{ value: "hires", label: "Hires", count: 1 },
+		]);
 	});
 
 	it("previews an expression against the sample root and row", () => {
-		const run = prepareRun(definition(BLANK_DEF), vault(), { now: NOW });
-		const base = baseScope(run, true)!;
-		expect(previewExpression("proceso.team", base, run)).toBe("Célula Pagos");
-		expect(previewExpression("Rol: {{proceso.role | upper}}", base, run)).toBe("Rol: BACK");
-		const row = rowSampleScope(base, ["interviews"], run.rt)!;
-		expect(previewExpression("interviews.interviewed.seniority", row, run)).toBe("Semi Senior");
-		expect(previewExpression("interviews.date", row, run)).toBe("2026-03-03");
-	});
-
-	it("pathExpr brackets segments with dots", () => {
+		const r = run();
+		const base = baseScope(r, true)!;
+		expect(previewExpression("proceso.team", base, r)).toBe("Célula Pagos");
+		expect(previewExpression("Rol: {{proceso.role | upper}}", base, r)).toBe("Rol: BACK");
+		const row = rowSampleScope(base, ["interviews"], r.rt)!;
+		expect(previewExpression("interviews.interviewed.seniority", row, r)).toBe("Semi Senior");
 		expect(pathExpr(["a", "tech rating", "x.y"])).toBe('a.tech rating["x.y"]');
 	});
 });

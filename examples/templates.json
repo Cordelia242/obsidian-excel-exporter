@@ -1,0 +1,91 @@
+[
+	{
+		"id": "ficha-proceso",
+		"name": "Ficha de proceso",
+		"description": "Un Excel por proceso con sus candidatos entrevistados",
+		"template": "Templates/Excel/Proceso.xlsx",
+		"root": {
+			"alias": "proceso",
+			"label": "Proceso",
+			"where": "categories contains \"Talent Acquisition Process\"",
+			"filter": "status != \"Closed\"",
+			"sort": "created desc"
+		},
+		"mode": "file-per-root",
+		"relations": {
+			"interviews": {
+				"label": "Interviews",
+				"from": "categories contains \"Interview Evaluations\"",
+				"on": "process -> proceso",
+				"sort": "date asc"
+			},
+			"contratados": {
+				"label": "Contratados",
+				"source": "interviews",
+				"filter": "decision == \"Hire\""
+			}
+		},
+		"output": {
+			"folder": "Exports/out",
+			"filename": "{{proceso.file.name}} - {{@today | date:\"yyyy-MM-dd\"}}.xlsx",
+			"overwrite": "ask"
+		},
+		"cells": {
+			"Proceso!B1": "proceso.file.name",
+			"Proceso!B2": "proceso.team",
+			"Proceso!E2": "proceso.role",
+			"Proceso!B3": "proceso.seniority",
+			"Proceso!E3": "proceso.quantity",
+			"Proceso!B4": "proceso.status",
+			"Proceso!E4": "proceso.contratados | count",
+			"Proceso!A7": "interviews.interviewed",
+			"Proceso!B7": "interviews.interviewed.seniority",
+			"Proceso!C7": "interviews.interviewed.stack",
+			"Proceso!D7": "interviews.interviewed.linkedin",
+			"Proceso!E7": "interviews.date",
+			"Proceso!F7": "interviews.speech rating",
+			"Proceso!G7": "interviews.tech rating",
+			"Proceso!H7": "interviews.decision"
+		},
+		"rows": {
+			"Proceso!7": "interviews"
+		}
+	},
+	{
+		"id": "consolidado",
+		"name": "Consolidado de postulantes",
+		"description": "Un solo Excel con todas las entrevistas de los procesos activos",
+		"template": "Templates/Excel/Consolidado.xlsx",
+		"root": {
+			"alias": "proceso",
+			"label": "Proceso",
+			"where": "categories contains \"Talent Acquisition Process\"",
+			"filter": "status != \"Closed\"",
+			"sort": "priority desc"
+		},
+		"mode": "single",
+		"relations": {
+			"interviews": {
+				"label": "Interviews",
+				"from": "categories contains \"Interview Evaluations\"",
+				"on": "process -> proceso"
+			}
+		},
+		"output": {
+			"folder": "Exports/out",
+			"filename": "Consolidado {{@today | date:\"yyyy-MM-dd\"}}.xlsx",
+			"overwrite": "ask"
+		},
+		"cells": {
+			"Consolidado!A2": "proceso.file.name",
+			"Consolidado!B2": "proceso.role",
+			"Consolidado!C2": "proceso.priority",
+			"Consolidado!D2": "interviews.interviewed",
+			"Consolidado!E2": "interviews.tech rating",
+			"Consolidado!F2": "interviews.decision"
+		},
+		"rows": {
+			"Consolidado!2": "proceso.interviews"
+		}
+	}
+]

@@ -15,16 +15,16 @@ export class ExcelExportSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Carpeta de definiciones")
-			.setDesc("Notas con bloques `excel-export`. Vacío = todo el vault.")
-			.addText((t) => t.setPlaceholder("Exports/").setValue(s.definitionsFolder).onChange(async (v) => {
-				s.definitionsFolder = v.trim();
+			.setName("Carpeta de los Excel de template")
+			.setDesc("Donde se guardan los Excel que subes desde tu computador al crear un template.")
+			.addText((t) => t.setPlaceholder("Templates/Excel").setValue(s.templatesFolder).onChange(async (v) => {
+				s.templatesFolder = v.trim();
 				await save();
 			}));
 
 		new Setting(containerEl)
 			.setName("Carpeta de salida por defecto")
-			.setDesc("Se usa cuando la definición no tiene `output.folder`.")
+			.setDesc("Carpeta propuesta al crear un template nuevo.")
 			.addText((t) => t.setPlaceholder("Exports/out/").setValue(s.outputFolder).onChange(async (v) => {
 				s.outputFolder = v.trim();
 				await save();

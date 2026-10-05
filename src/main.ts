@@ -1,18 +1,35 @@
-import { Notice, normalizePath, Plugin, TFile, type TAbstractFile } from "obsidian";
+import { FuzzySuggestModal, Notice, parseYaml, Plugin, TFile, type App, type TAbstractFile } from "obsidian";
 import { ObsidianVaultAdapter } from "./adapter/obsidian-adapter";
-import { CODEBLOCK_LANG, EXAMPLE_DEFINITION } from "./config/parse";
+import { CODEBLOCK_LANG, extractCodeBlocks } from "./config/parse";
 import type { CompiledDefinition } from "./config/schema";
 import { buildExport, writeExport, type RunOptions } from "./export/runner";
-import { validateTemplate } from "./export/validate";
 import { Runtime } from "./graph/context";
 import { Report } from "./model/report";
 import { evaluate } from "./query/evaluator";
 import { DEFAULT_SETTINGS, ExcelExportSettingTab, type ExportSettings } from "./settings";
+import { compileTemplate, fromRawDefinition, templateStatus, type TemplateConfig } from "./store/templates";
 import { renderCodeBlock } from "./ui/codeblock";
-import { DefinitionPicker, errorText, findDefinitions, type DefinitionEntry } from "./ui/definition-picker";
+import { errorText, findDefinitions } from "./ui/definition-picker";
+import { ExportDialog } from "./ui/export-dialog";
+import { MANAGER_VIEW_TYPE, ManagerView, type ManagerRoute } from "./ui/manager/manager-view";
 import { PreviewModal } from "./ui/preview-modal";
-import { askOverwrite, openFile, showResultNotice, ValidationModal } from "./ui/report-modal";
-import { SETUP_VIEW_TYPE, SetupView } from "./ui/setup-view";
+import { askOverwrite, openFile, showResultNotice } from "./ui/report-modal";
+
+class TemplatePicker extends FuzzySuggestModal<TemplateConfig> {
+	constructor(app: App, private items: TemplateConfig[], private onPick: (t: TemplateConfig) => void, placeholder: string) {
+		super(app);
+		this.setPlaceholder(placeholder);
+	}
+	getItems(): TemplateConfig[] {
+		return this.items;
+	}
+	getItemText(t: TemplateConfig): string {
+		return t.name;
+	}
+	onChooseItem(t: TemplateConfig): void {
+		this.onPick(t);
+	}
+}
 
 export default class ExcelTemplateExportPlugin extends Plugin {
 	settings: ExportSettings = { ...DEFAULT_SETTINGS };
@@ -20,41 +37,36 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.addSettingTab(new ExcelExportSettingTab(this.app, this));
-		this.registerView(SETUP_VIEW_TYPE, (leaf) => new SetupView(leaf, this));
+		this.registerView(MANAGER_VIEW_TYPE, (leaf) => new ManagerView(leaf, this));
+
+		this.addRibbonIcon("file-spreadsheet", "Templates de Excel", () => void this.openManager({ route: "gallery" }));
 
 		this.addCommand({
-			id: "setup",
-			name: "Setup (configurar celdas del Excel)…",
-			callback: () => this.pickDefinition((entry) => void this.openSetup(entry.file.path, entry.index)),
+			id: "open-manager",
+			name: "Abrir templates de Excel",
+			callback: () => void this.openManager({ route: "gallery" }),
 		});
-
 		this.addCommand({
-			id: "run-export",
-			name: "Ejecutar export…",
-			callback: () => this.pickDefinition((entry) => this.withCompiled(entry, (cd) => this.runDefinition(cd))),
-		});
-
-		this.addCommand({
-			id: "export-active-note",
-			name: "Exportar nota activa con…",
-			checkCallback: (checking) => {
+			id: "export",
+			name: "Exportar a Excel…",
+			callback: () => {
 				const file = this.app.workspace.getActiveFile();
-				if (!file || file.extension !== "md") return false;
-				if (!checking) void this.exportNote(file);
-				return true;
+				if (file && file.extension === "md") void this.exportFromNote(file);
+				else this.pickTemplate(this.readyTemplates(), (t) => this.openExportDialog(t));
 			},
 		});
-
 		this.addCommand({
-			id: "validate-template",
-			name: "Validar template…",
-			callback: () => this.pickDefinition((entry) => this.withCompiled(entry, (cd) => this.validateDefinition(cd))),
+			id: "new-template",
+			name: "Nuevo template de Excel",
+			callback: async () => {
+				await this.openManager({ route: "gallery" });
+				this.findManager()?.newTemplate();
+			},
 		});
-
 		this.addCommand({
-			id: "new-definition",
-			name: "Nueva definición",
-			callback: () => void this.createDefinition(),
+			id: "import-definitions",
+			name: "Importar definiciones desde notas",
+			callback: () => void this.importLegacyDefinitions(),
 		});
 
 		this.registerMarkdownCodeBlockProcessor(CODEBLOCK_LANG, (source, el, ctx) => renderCodeBlock(this, source, el, ctx));
@@ -64,70 +76,115 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 				if (!(file instanceof TFile) || file.extension !== "md") return;
 				menu.addItem((item) =>
 					item
-						.setTitle("Exportar a Excel con…")
-						.setIcon("sheet")
-						.onClick(() => void this.exportNote(file)),
+						.setTitle("Exportar a Excel…")
+						.setIcon("file-spreadsheet")
+						.onClick(() => void this.exportFromNote(file)),
 				);
 			}),
 		);
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as Partial<ExportSettings> | null) };
+		const data = ((await this.loadData()) ?? {}) as Partial<ExportSettings>;
+		this.settings = { ...DEFAULT_SETTINGS, ...data, templates: data.templates ?? [] };
 	}
 
 	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
 
-	private async pickDefinition(onPick: (entry: DefinitionEntry) => void, entries?: DefinitionEntry[], placeholder?: string) {
-		const list = entries ?? (await findDefinitions(this.app, this.settings.definitionsFolder));
-		if (!list.length) {
-			new Notice(
-				`Excel Export: no hay definiciones en "${this.settings.definitionsFolder || "el vault"}". Usa "Nueva definición".`,
-			);
-			return;
-		}
-		new DefinitionPicker(this.app, list, onPick, placeholder).open();
+	// ------------------------------------------------------------------ templates store
+
+	async saveTemplate(cfg: TemplateConfig): Promise<void> {
+		const list = this.settings.templates;
+		const i = list.findIndex((t) => t.id === cfg.id);
+		if (i >= 0) list[i] = cfg;
+		else list.push(cfg);
+		await this.saveSettings();
 	}
 
-	private withCompiled(entry: DefinitionEntry, fn: (cd: CompiledDefinition) => void): void {
-		if (!entry.compiled) {
-			new Notice(`Excel Export: "${entry.file.path}" tiene una definición inválida:\n${entry.error}`, 10000);
-			return;
-		}
-		fn(entry.compiled);
+	async deleteTemplate(id: string): Promise<void> {
+		this.settings.templates = this.settings.templates.filter((t) => t.id !== id);
+		await this.saveSettings();
 	}
 
-	/** Command 2 / file menu: picks among definitions whose root.where matches the note. */
-	async exportNote(file: TFile): Promise<void> {
-		const all = await findDefinitions(this.app, this.settings.definitionsFolder);
+	readyTemplates(): TemplateConfig[] {
+		return this.settings.templates.filter((t) => templateStatus(t).ready);
+	}
+
+	countAvailable(cd: CompiledDefinition): number {
+		const adapter = new ObsidianVaultAdapter(this.app);
+		const rt = new Runtime(adapter, new Report());
+		let roots = adapter.listNotes().filter((n) => evaluate(cd.where, n, rt));
+		if (cd.filter) roots = roots.filter((n) => evaluate(cd.filter!, n, rt));
+		return roots.length;
+	}
+
+	// ------------------------------------------------------------------ navigation
+
+	findManager(): ManagerView | null {
+		const leaf = this.app.workspace.getLeavesOfType(MANAGER_VIEW_TYPE)[0];
+		return (leaf?.view as ManagerView | undefined) ?? null;
+	}
+
+	async openManager(route: ManagerRoute): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(MANAGER_VIEW_TYPE)[0];
+		const leaf = existing ?? this.app.workspace.getLeaf("tab");
+		if (existing) await (existing.view as ManagerView).navigate(route);
+		else await leaf.setViewState({ type: MANAGER_VIEW_TYPE, active: true, state: route });
+		this.app.workspace.revealLeaf(leaf);
+	}
+
+	private pickTemplate(items: TemplateConfig[], onPick: (t: TemplateConfig) => void, placeholder = "¿Con qué template exportas?"): void {
+		if (!items.length) {
+			new Notice("Todavía no hay templates listos. Se abre el gestor para crear uno.");
+			void this.openManager({ route: "gallery" });
+			return;
+		}
+		if (items.length === 1) return onPick(items[0]);
+		new TemplatePicker(this.app, items, onPick, placeholder).open();
+	}
+
+	openExportDialog(cfg: TemplateConfig, preselect: string[] = []): void {
+		new ExportDialog(this, cfg, preselect).open();
+	}
+
+	/** Command / file menu on a note: templates whose notes include this one, with the note preselected. */
+	async exportFromNote(file: TFile): Promise<void> {
 		const adapter = new ObsidianVaultAdapter(this.app);
 		const note = adapter.listNotes().find((n) => n.path === file.path);
 		const rt = new Runtime(adapter, new Report());
-		const matching = note ? all.filter((e) => e.compiled && evaluate(e.compiled.where, note, rt)) : [];
-		let entries = matching;
-		let placeholder = `Exportar "${file.basename}" con…`;
-		if (!matching.length) {
-			if (all.length) new Notice("Excel Export: ninguna definición coincide con esta nota (root.where); se muestran todas.");
-			entries = all;
-			placeholder = `Exportar "${file.basename}" con… (ninguna coincide con root.where)`;
+		const matching = this.readyTemplates().filter((t) => {
+			const { cd } = compileTemplate(t);
+			return cd && note && evaluate(cd.where, note, rt);
+		});
+		if (matching.length) {
+			this.pickTemplate(matching, (t) => this.openExportDialog(t, [file.path]), `Exportar «${file.basename}» con…`);
+		} else {
+			new Notice(`Ningún template exporta notas como «${file.basename}». Elige uno.`);
+			this.pickTemplate(this.readyTemplates(), (t) => this.openExportDialog(t));
 		}
-		await this.pickDefinition(
-			(entry) => this.withCompiled(entry, (cd) => void this.runDefinition(cd, file.path)),
-			entries,
-			placeholder,
-		);
 	}
 
-	async runDefinition(cd: CompiledDefinition, activeNotePath?: string): Promise<void> {
+	// ------------------------------------------------------------------ export
+
+	async runTemplate(cfg: TemplateConfig, rootPaths: string[]): Promise<void> {
+		const { cd, errors } = compileTemplate(cfg);
+		if (!cd) {
+			new Notice(`El template no está terminado: ${errors[0]}`, 8000);
+			return;
+		}
+		await this.runDefinition(cd, rootPaths);
+	}
+
+	async runDefinition(cd: CompiledDefinition, rootPaths?: string[]): Promise<void> {
 		const adapter = new ObsidianVaultAdapter(this.app);
 		const options: RunOptions = {
 			settings: this.settings,
-			activeNotePath,
+			rootPaths,
 			confirmOverwrite: (path) => askOverwrite(this.app, path),
 		};
-		const progress = new Notice(`Excel Export: generando "${cd.def.name}"…`, 0);
+		const progress = new Notice(`Generando «${cd.def.name}»…`, 0);
 		try {
 			const built = await buildExport(cd, adapter, options);
 			progress.hide();
@@ -138,50 +195,43 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 					if (this.settings.openAfterExport && result.files.length === 1) openFile(this.app, result.files[0]);
 				} catch (e) {
 					console.error("Excel Template Export", e);
-					new Notice(`Excel Export: error al guardar "${cd.def.name}": ${errorText(e)}`, 10000);
+					new Notice(`Error al guardar «${cd.def.name}»: ${errorText(e)}`, 10000);
 				}
 			};
-			if (this.settings.previewBeforeExport) {
-				new PreviewModal(this.app, `Vista previa — ${cd.def.name}`, built, () => void write()).open();
-			} else {
-				await write();
-			}
+			if (this.settings.previewBeforeExport) new PreviewModal(this.app, `Vista previa — ${cd.def.name}`, built, () => void write()).open();
+			else await write();
 		} catch (e) {
 			progress.hide();
 			console.error("Excel Template Export", e);
-			new Notice(`Excel Export: error en "${cd.def.name}": ${errorText(e)}`, 10000);
+			new Notice(`Error en «${cd.def.name}»: ${errorText(e)}`, 10000);
 		}
 	}
 
-	async openSetup(path: string, index: number): Promise<void> {
-		const existing = this.app.workspace
-			.getLeavesOfType(SETUP_VIEW_TYPE)
-			.find((l) => {
-				const st = l.getViewState().state as { file?: string; index?: number } | undefined;
-				return st?.file === path && (st?.index ?? 0) === index;
-			});
-		const leaf = existing ?? this.app.workspace.getLeaf("tab");
-		if (!existing) await leaf.setViewState({ type: SETUP_VIEW_TYPE, active: true, state: { file: path, index } });
-		this.app.workspace.revealLeaf(leaf);
+	// ------------------------------------------------------------------ legacy (YAML in notes)
+
+	async countLegacyDefinitions(): Promise<number> {
+		const names = new Set(this.settings.templates.map((t) => t.name));
+		const defs = await findDefinitions(this.app, "");
+		return defs.filter((d) => d.compiled && !names.has(d.compiled.def.name)).length;
 	}
 
-	async validateDefinition(cd: CompiledDefinition): Promise<void> {
-		try {
-			const result = await validateTemplate(cd, new ObsidianVaultAdapter(this.app), { settings: this.settings });
-			new ValidationModal(this.app, cd.def.name, result).open();
-		} catch (e) {
-			new Notice(`Excel Export: no se pudo validar "${cd.def.name}": ${errorText(e)}`, 10000);
+	async importLegacyDefinitions(): Promise<void> {
+		const names = new Set(this.settings.templates.map((t) => t.name));
+		let n = 0;
+		for (const d of await findDefinitions(this.app, "")) {
+			if (!d.compiled || names.has(d.compiled.def.name)) continue;
+			const body = extractCodeBlocks(await this.app.vault.cachedRead(d.file))[d.index] ?? "";
+			try {
+				this.settings.templates.push(fromRawDefinition(parseYaml(body) as Record<string, unknown>));
+				names.add(d.compiled.def.name);
+				n++;
+			} catch (e) {
+				new Notice(`No se pudo importar ${d.file.path}: ${errorText(e)}`);
+			}
 		}
-	}
-
-	private async createDefinition(): Promise<void> {
-		const folder = normalizePath(this.settings.definitionsFolder || "/");
-		if (folder !== "/" && !this.app.vault.getAbstractFileByPath(folder)) await this.app.vault.createFolder(folder);
-		const base = folder === "/" ? "" : `${folder}/`;
-		let path = `${base}Nueva definición.md`;
-		for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = `${base}Nueva definición ${i}.md`;
-		const content = `Definición de export a Excel. Ajusta \`root\` y \`relations\`, elige el template y usa **Setup** para indicar qué dato va en cada celda.\n\n\`\`\`${CODEBLOCK_LANG}\n${EXAMPLE_DEFINITION}\`\`\`\n`;
-		const file = await this.app.vault.create(path, content);
-		await this.app.workspace.getLeaf(true).openFile(file);
+		await this.saveSettings();
+		new Notice(n ? `${n} ${n === 1 ? "template importado" : "templates importados"}.` : "No hay definiciones nuevas para importar.");
+		await this.findManager()?.refresh();
+		if (n) await this.openManager({ route: "gallery" });
 	}
 }

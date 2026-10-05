@@ -1,5 +1,6 @@
 import type { EmptyBlockMode, OverwriteMode } from "./schema";
 import type { NormalizeOptions } from "../values/normalize";
+import type { TemplateConfig } from "../store/templates";
 
 /** Plugin settings (§10). Pure: no Obsidian imports. */
 export interface ExportSettings {
@@ -13,6 +14,9 @@ export interface ExportSettings {
 	openAfterExport: boolean;
 	overwrite: OverwriteMode;
 	previewBeforeExport: boolean;
+	/** Where Excel files uploaded from the computer are stored. */
+	templatesFolder: string;
+	templates: TemplateConfig[];
 }
 
 export const DEFAULT_SETTINGS: ExportSettings = {
@@ -26,4 +30,6 @@ export const DEFAULT_SETTINGS: ExportSettings = {
 	openAfterExport: false,
 	overwrite: "ask",
 	previewBeforeExport: true,
+	templatesFolder: "Templates/Excel",
+	templates: [],
 };
