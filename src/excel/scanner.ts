@@ -16,14 +16,22 @@ export interface EachRow {
 	tpl: CellTemplate;
 }
 
+export interface EachSpec {
+	src: string;
+	path: string[];
+}
+
 export interface SheetScan {
 	cells: ScannedCell[];
 	eachRows: EachRow[];
 	issues: Array<{ address: string; message: string }>;
 }
 
-/** Finds placeholders and `#each` rows in a worksheet (§6). */
-export function scanWorksheet(ws: Worksheet): SheetScan {
+/**
+ * Finds placeholders and `#each` rows in a worksheet (§6). `rowRepeats`
+ * adds row-level repeats configured in Setup (a `{{#each}}` in a cell wins).
+ */
+export function scanWorksheet(ws: Worksheet, rowRepeats?: Map<number, EachSpec>): SheetScan {
 	const cells: ScannedCell[] = [];
 	const eachRows: EachRow[] = [];
 	const issues: SheetScan["issues"] = [];
@@ -51,5 +59,14 @@ export function scanWorksheet(ws: Worksheet): SheetScan {
 			}
 		});
 	});
+	for (const [row, spec] of rowRepeats ?? []) {
+		const existing = eachRows.find((e) => e.row === row);
+		if (existing) {
+			issues.push({ address: existing.address, message: `La fila ${row} ya tiene {{#each}} en la celda; se ignora la repetición configurada en Setup` });
+			continue;
+		}
+		eachRows.push({ row, col: 0, address: `A${row}`, tpl: { parts: [], each: { ...spec }, issues: [] } });
+	}
+	eachRows.sort((a, b) => a.row - b.row);
 	return { cells, eachRows, issues };
 }

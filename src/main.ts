@@ -2,7 +2,7 @@ import { Notice, normalizePath, Plugin, TFile, type TAbstractFile } from "obsidi
 import { ObsidianVaultAdapter } from "./adapter/obsidian-adapter";
 import { CODEBLOCK_LANG, EXAMPLE_DEFINITION } from "./config/parse";
 import type { CompiledDefinition } from "./config/schema";
-import { runExport } from "./export/runner";
+import { buildExport, writeExport, type RunOptions } from "./export/runner";
 import { validateTemplate } from "./export/validate";
 import { Runtime } from "./graph/context";
 import { Report } from "./model/report";
@@ -10,7 +10,9 @@ import { evaluate } from "./query/evaluator";
 import { DEFAULT_SETTINGS, ExcelExportSettingTab, type ExportSettings } from "./settings";
 import { renderCodeBlock } from "./ui/codeblock";
 import { DefinitionPicker, errorText, findDefinitions, type DefinitionEntry } from "./ui/definition-picker";
+import { PreviewModal } from "./ui/preview-modal";
 import { askOverwrite, openFile, showResultNotice, ValidationModal } from "./ui/report-modal";
+import { SETUP_VIEW_TYPE, SetupView } from "./ui/setup-view";
 
 export default class ExcelTemplateExportPlugin extends Plugin {
 	settings: ExportSettings = { ...DEFAULT_SETTINGS };
@@ -18,6 +20,13 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.addSettingTab(new ExcelExportSettingTab(this.app, this));
+		this.registerView(SETUP_VIEW_TYPE, (leaf) => new SetupView(leaf, this));
+
+		this.addCommand({
+			id: "setup",
+			name: "Setup (configurar celdas del Excel)…",
+			callback: () => this.pickDefinition((entry) => void this.openSetup(entry.file.path, entry.index)),
+		});
 
 		this.addCommand({
 			id: "run-export",
@@ -112,21 +121,48 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 	}
 
 	async runDefinition(cd: CompiledDefinition, activeNotePath?: string): Promise<void> {
+		const adapter = new ObsidianVaultAdapter(this.app);
+		const options: RunOptions = {
+			settings: this.settings,
+			activeNotePath,
+			confirmOverwrite: (path) => askOverwrite(this.app, path),
+		};
 		const progress = new Notice(`Excel Export: generando "${cd.def.name}"…`, 0);
 		try {
-			const result = await runExport(cd, new ObsidianVaultAdapter(this.app), {
-				settings: this.settings,
-				activeNotePath,
-				confirmOverwrite: (path) => askOverwrite(this.app, path),
-			});
+			const built = await buildExport(cd, adapter, options);
 			progress.hide();
-			showResultNotice(this.app, cd.def.name, result.files, result.warnings);
-			if (this.settings.openAfterExport && result.files.length === 1) openFile(this.app, result.files[0]);
+			const write = async () => {
+				try {
+					const result = await writeExport(built, adapter, options);
+					showResultNotice(this.app, cd.def.name, result.files, result.warnings);
+					if (this.settings.openAfterExport && result.files.length === 1) openFile(this.app, result.files[0]);
+				} catch (e) {
+					console.error("Excel Template Export", e);
+					new Notice(`Excel Export: error al guardar "${cd.def.name}": ${errorText(e)}`, 10000);
+				}
+			};
+			if (this.settings.previewBeforeExport) {
+				new PreviewModal(this.app, `Vista previa — ${cd.def.name}`, built, () => void write()).open();
+			} else {
+				await write();
+			}
 		} catch (e) {
 			progress.hide();
 			console.error("Excel Template Export", e);
 			new Notice(`Excel Export: error en "${cd.def.name}": ${errorText(e)}`, 10000);
 		}
+	}
+
+	async openSetup(path: string, index: number): Promise<void> {
+		const existing = this.app.workspace
+			.getLeavesOfType(SETUP_VIEW_TYPE)
+			.find((l) => {
+				const st = l.getViewState().state as { file?: string; index?: number } | undefined;
+				return st?.file === path && (st?.index ?? 0) === index;
+			});
+		const leaf = existing ?? this.app.workspace.getLeaf("tab");
+		if (!existing) await leaf.setViewState({ type: SETUP_VIEW_TYPE, active: true, state: { file: path, index } });
+		this.app.workspace.revealLeaf(leaf);
 	}
 
 	async validateDefinition(cd: CompiledDefinition): Promise<void> {
@@ -144,7 +180,7 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 		const base = folder === "/" ? "" : `${folder}/`;
 		let path = `${base}Nueva definición.md`;
 		for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = `${base}Nueva definición ${i}.md`;
-		const content = `Definición de export a Excel. Editá el bloque y usá **Ejecutar**.\n\n\`\`\`${CODEBLOCK_LANG}\n${EXAMPLE_DEFINITION}\`\`\`\n`;
+		const content = `Definición de export a Excel. Ajustá \`root\` y \`relations\`, elegí el template y usá **Setup** para indicar qué dato va en cada celda.\n\n\`\`\`${CODEBLOCK_LANG}\n${EXAMPLE_DEFINITION}\`\`\`\n`;
 		const file = await this.app.vault.create(path, content);
 		await this.app.workspace.getLeaf(true).openFile(file);
 	}

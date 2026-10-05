@@ -22,9 +22,44 @@ En [`examples/`](examples/) hay dos templates (`Proceso.xlsx`, `Consolidado.xlsx
 
 ## Cómo funciona
 
-1. Diseñás un Excel normal y ponés **placeholders** en las celdas: `{{proceso.role}}`.
-2. Creás una **definición** (una nota con un bloque `excel-export`) que dice cuáles son las notas raíz, cómo se filtran, qué notas relacionadas traer y qué template usar.
-3. Ejecutás el export desde el bloque, la paleta de comandos o el menú contextual de una nota.
+1. Diseñás un Excel normal **solo con títulos y formato** (las celdas de datos quedan vacías).
+2. Creás una **definición** (una nota con un bloque `excel-export`) que dice cuáles son las notas raíz, cómo se filtran y qué notas relacionadas traer.
+3. Abrís **Setup**: ves el Excel dentro de Obsidian, hacés clic en una celda y elegís con qué dato se llena. Hacés clic en el número de una fila para repetirla por cada interview, contratado, etc.
+4. **Ejecutar** genera el Excel y te muestra una **vista previa** dentro de Obsidian; si está bien, confirmás y se guarda.
+
+También se pueden escribir placeholders directamente en las celdas del Excel (`{{proceso.role}}`, ver más abajo); ambos métodos se pueden combinar.
+
+### Setup (configurar el Excel visualmente)
+
+Botón **Setup** del bloque, o comando **Excel Export: Setup (configurar celdas del Excel)…**. Se abre una pestaña con:
+
+- **El Excel** con sus colores, anchos y celdas combinadas. Las celdas configuradas muestran el campo en azul; con **Ver datos de muestra** muestran el valor real de la nota de muestra.
+- **Clic en una celda** → panel con:
+  - **Campos disponibles**, descubiertos de tus notas: properties de la raíz (con un valor de ejemplo), relaciones (`interviews`, `hires`), links navegables (por ejemplo `interviews › interviewed › linkedin`), `file.*` y variables (`@today`, `@index`…). Buscador incluido.
+  - **Formato**: tal cual, contar elementos, estrellas → número, fecha dd/MM/yyyy, primer elemento, lista con `;`, mayúsculas, hipervínculo a la nota…
+  - **Muestra**: cómo queda el valor con la nota de muestra.
+  - Para mezclar texto y datos escribí, por ejemplo, `Rol: {{proceso.role}}`.
+- **Clic en el número de fila** → *Repetir esta fila por*: elegí la colección (`interviews`, `hires`, o en modo `single` `proceso` / `proceso.interviews`). Dentro de esa fila aparecen los campos de «Fila: cada interviews».
+- **Nota de muestra**: elegí con qué nota raíz probar.
+- **Previsualizar** / **Exportar**.
+
+Los cambios se guardan solos en el bloque YAML de la nota (claves `cells` y `rows`):
+
+```yaml
+cells:
+  Proceso!B2: proceso.team
+  Proceso!E4: proceso.hires | count
+  Proceso!A7: interviews.interviewed
+  Proceso!G7: interviews.tech rating | stars
+rows:
+  Proceso!7: interviews
+```
+
+Al guardar desde Setup el bloque se reescribe, así que los comentarios `#` del YAML se pierden.
+
+### Vista previa antes de exportar
+
+Al ejecutar un export se genera todo en memoria y se muestra dentro de Obsidian (selector de archivo y de hoja, warnings). Recién al pulsar **Exportar** se escriben los `.xlsx`. Se puede desactivar en settings (*Previsualizar antes de exportar*). Las fórmulas se muestran como `=FÓRMULA`: Excel las calcula al abrir el archivo.
 
 ### Definición
 
@@ -65,6 +100,11 @@ normalize:                              # opcional; si falta se usan los setting
   emptyValue: ''
 
 emptyBlock: remove                      # opcional: remove | blank (fila #each sin elementos)
+
+cells:                                  # lo escribe Setup: celda → dato
+  Proceso!B2: proceso.team
+rows:                                   # lo escribe Setup: fila → colección que la repite
+  Proceso!7: interviews
 ```
 ````
 
@@ -73,7 +113,7 @@ emptyBlock: remove                      # opcional: remove | blank (fila #each s
 - Los links hacia adelante **no se declaran**: se navegan en el path (`interviews.interviewed.linkedin`).
 - Un YAML inválido muestra el error en el propio bloque, con la clave o la columna del problema.
 
-### Template de Excel
+### Placeholders en el Excel (alternativa a Setup)
 
 | Sintaxis | Qué hace |
 |---|---|
@@ -149,6 +189,7 @@ Las fechas se interpretan en hora local, sin corrimiento por zona horaria.
 
 - **Ejecutar export…**: elegís una definición y la corre.
 - **Exportar nota activa con…**: muestra las definiciones cuyo `root.where` coincide con la nota activa (si ninguna coincide, muestra todas con aviso) y exporta solo esa nota. También está en el menú contextual de las notas: *Exportar a Excel con…*.
+- **Setup (configurar celdas del Excel)…**: editor visual (ver arriba).
 - **Validar template…**: lista placeholders y filas `#each`, colecciones desconocidas y paths que no resuelven contra la primera raíz.
 - **Nueva definición**.
 
@@ -169,6 +210,7 @@ Después de exportar aparece un aviso (`3 archivos generados, 2 warnings`) con *
 | Fila `#each` vacía | `remove` |
 | Abrir archivo al terminar (desktop) | `false` |
 | Sobrescritura por defecto | `ask` |
+| Previsualizar antes de exportar | `true` |
 
 ## Limitaciones conocidas (v1)
 
@@ -208,8 +250,9 @@ src/
   graph/                    # paths, relaciones (índice inverso), runtime
   values/                   # links, normalización, pipes
   excel/                    # placeholders, scanner, motor, fórmulas, IO
-  export/                   # runner (modos y escritura) y validación
-  ui/                       # picker, code block, modales
+  export/                   # runner (build en memoria + escritura) y validación
+  setup/                    # descubrimiento de campos para el Setup
+  ui/                       # Setup, vista previa, picker, code block, modales
 tests/                      # tests del core + fixture del dominio (vault.json)
 ```
 

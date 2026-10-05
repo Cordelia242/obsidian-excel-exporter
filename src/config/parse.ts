@@ -27,6 +27,7 @@ export function extractCodeBlocks(markdown: string, lang = CODEBLOCK_LANG): stri
 }
 
 export const EXAMPLE_DEFINITION = `name: Procesos activos
+# Excel con títulos y formato; los datos se configuran con el botón Setup.
 template: Templates/Excel/Proceso.xlsx
 
 root:
@@ -51,3 +52,30 @@ output:
   filename: '{{proceso.file.name}} - {{@today | date:"yyyy-MM-dd"}}.xlsx'
   overwrite: ask
 `;
+
+/** Replaces the body of the `index`-th ```excel-export block of a markdown document. */
+export function replaceCodeBlock(markdown: string, index: number, body: string, lang = CODEBLOCK_LANG): string {
+	const re = /^([ \t]*)(`{3,}|~{3,})[ \t]*([\w-]+)[^\n]*\n([\s\S]*?)^\1\2[ \t]*$/gm;
+	let m: RegExpExecArray | null;
+	let i = 0;
+	while ((m = re.exec(markdown))) {
+		if (m[3] !== lang) continue;
+		if (i++ === index) {
+			const bodyStart = m.index + m[0].indexOf("\n") + 1;
+			const bodyEnd = bodyStart + m[4].length;
+			const text = body.endsWith("\n") ? body : body + "\n";
+			return markdown.slice(0, bodyStart) + text + markdown.slice(bodyEnd);
+		}
+	}
+	throw new Error(`No se encontró el bloque ${lang} #${index + 1}`);
+}
+
+/** Canonical key order when writing a definition back to YAML. */
+export const DEFINITION_KEY_ORDER = ["name", "template", "root", "mode", "relations", "output", "normalize", "emptyBlock", "cells", "rows"];
+
+export function orderDefinitionKeys(raw: Record<string, unknown>): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const k of DEFINITION_KEY_ORDER) if (raw[k] !== undefined) out[k] = raw[k];
+	for (const k of Object.keys(raw)) if (!(k in out)) out[k] = raw[k];
+	return out;
+}

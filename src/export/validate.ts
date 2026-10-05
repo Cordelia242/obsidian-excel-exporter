@@ -6,8 +6,8 @@ import { MISSING } from "../values/normalize";
 import { KNOWN_PIPES } from "../values/pipes";
 import { iterateCollection } from "../excel/placeholders";
 import { scanWorksheet } from "../excel/scanner";
-import { loadWorkbook } from "../excel/workbook-io";
-import { collectionScope, loadTemplate, prepareRun, rootScope, type RunOptions } from "./runner";
+import { rowRepeatsFor } from "../excel/mapping";
+import { collectionScope, loadPreparedTemplate, loadTemplate, prepareRun, rootScope, type RunOptions } from "./runner";
 
 export type CheckStatus = "ok" | "unknown" | "unresolved" | "no-sample" | "error";
 
@@ -42,8 +42,10 @@ export async function validateTemplate(
 	adapter: VaultAdapter,
 	options: RunOptions = {},
 ): Promise<TemplateValidation> {
-	const wb = await loadWorkbook(await loadTemplate(adapter, cd.def.template));
+	const data = await loadTemplate(adapter, cd.def.template);
 	const run = prepareRun(cd, adapter, options);
+	const wb = await loadPreparedTemplate(data, cd, run);
+	const firstSheet = wb.worksheets[0]?.name ?? "";
 	const result: TemplateValidation = { roots: run.roots.length, placeholders: [], eachRows: [], issues: [] };
 	if (cd.def.mode !== "single" && run.roots.length) result.sampleRoot = run.roots[0].path;
 	if (!run.roots.length) result.issues.push("Ninguna nota cumple el filtro de la raíz: no hay datos de muestra");
@@ -51,7 +53,7 @@ export async function validateTemplate(
 	wb.worksheets.forEach((ws, sheetIdx) => {
 		const perRoot = cd.def.mode === "file-per-root" || (cd.def.mode === "sheet-per-root" && sheetIdx === 0);
 		const base: Scope | null = perRoot ? (run.roots.length ? rootScope(run, run.roots[0], 0) : null) : collectionScope(run);
-		const scan = scanWorksheet(ws);
+		const scan = scanWorksheet(ws, rowRepeatsFor(cd.mapping, ws, firstSheet));
 		for (const i of scan.issues) result.issues.push(`${ws.name}!${i.address}: ${i.message}`);
 
 		const rowScope = new Map<number, Scope | null>();

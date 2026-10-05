@@ -10,6 +10,7 @@ import { sortNotes } from "../query/sort";
 import type { NormalizeOptions } from "../values/normalize";
 import { cloneWorksheet, fillWorksheet, sanitizeSheetName, type FillOptions } from "../excel/engine";
 import { renderString } from "../excel/placeholders";
+import { applyCellMapping, rowRepeatsFor } from "../excel/mapping";
 import { loadWorkbook, saveWorkbook, unshareFormulas, type Workbook, type Worksheet } from "../excel/workbook-io";
 
 export type OverwriteAnswer = "overwrite" | "suffix" | "skip";
@@ -187,32 +188,55 @@ export async function loadTemplate(adapter: VaultAdapter, path: string): Promise
 	return adapter.readBinary(path);
 }
 
-/** Runs a definition end to end and writes the resulting files (§6.4). */
-export async function runExport(cd: CompiledDefinition, adapter: VaultAdapter, options: RunOptions = {}): Promise<ExportResult> {
+export interface BuiltOutput {
+	/** File name (not yet sanitized/deduplicated against the vault). */
+	fileName: string;
+	workbook: Workbook;
+}
+
+/** Workbooks generated in memory, ready to preview and then write. */
+export interface BuiltExport {
+	run: PreparedRun;
+	outputs: BuiltOutput[];
+	warnings: ExportWarning[];
+}
+
+/** Loads the template and applies the Setup cell mapping. */
+export async function loadPreparedTemplate(data: ArrayBuffer, cd: CompiledDefinition, run: PreparedRun): Promise<Workbook> {
+	const wb = await loadWorkbook(data.slice(0));
+	unshareFormulas(wb);
+	applyCellMapping(wb, cd.mapping, run.rt.report);
+	return wb;
+}
+
+/** Generates every output workbook in memory (§6.4) without writing anything. */
+export async function buildExport(cd: CompiledDefinition, adapter: VaultAdapter, options: RunOptions = {}): Promise<BuiltExport> {
 	const template = await loadTemplate(adapter, cd.def.template);
 	const run = prepareRun(cd, adapter, options);
-	const writer = new OutputWriter(adapter, run, options);
 	const { def } = cd;
 	const fo = fillOptions(run);
+	const outputs: BuiltOutput[] = [];
 
 	if (run.roots.length === 0) {
 		run.rt.report.warn("other", "Ninguna nota cumple el filtro de la raíz; no se generó ningún archivo");
-		return { files: [], roots: 0, warnings: run.rt.report.warnings };
+		return { run, outputs, warnings: run.rt.report.warnings };
 	}
+
+	const repeats = (wb: Workbook, ws: Worksheet) => rowRepeatsFor(cd.mapping, ws, wb.worksheets[0]?.name ?? ws.name);
 
 	if (def.mode === "file-per-root") {
 		const filename = def.output.filename ?? `{{${def.root.alias}.file.name}}.xlsx`;
 		for (let i = 0; i < run.roots.length; i++) {
-			const wb = await loadWorkbook(template.slice(0));
-			unshareFormulas(wb);
+			const wb = await loadPreparedTemplate(template, cd, run);
 			const scope = rootScope(run, run.roots[i], i);
-			for (const ws of [...wb.worksheets]) fillWorksheet(wb, ws, scope, fo);
-			await writer.write(renderName(run, filename, scope, "output.filename"), await saveWorkbook(wb));
+			for (const ws of [...wb.worksheets]) fillWorksheet(wb, ws, scope, fo, repeats(wb, ws));
+			outputs.push({ fileName: renderName(run, filename, scope, "output.filename"), workbook: wb });
 		}
 	} else if (def.mode === "sheet-per-root") {
-		const wb = await loadWorkbook(template.slice(0));
-		unshareFormulas(wb);
+		const wb = await loadPreparedTemplate(template, cd, run);
 		const [tplSheet, ...others] = wb.worksheets;
+		const tplRepeats = repeats(wb, tplSheet);
+		const otherRepeats = new Map(others.map((ws) => [ws, repeats(wb, ws)]));
 		const taken = new Set(others.map((ws) => ws.name.toLowerCase()));
 		const sheetName = def.output.sheetName ?? `{{${def.root.alias}.file.name}}`;
 		const clones: Array<{ ws: Worksheet; name: string }> = [];
@@ -220,11 +244,11 @@ export async function runExport(cd: CompiledDefinition, adapter: VaultAdapter, o
 			const scope = rootScope(run, run.roots[i], i);
 			const name = sanitizeSheetName(renderName(run, sheetName, scope, "output.sheetName"), taken);
 			const ws = cloneWorksheet(wb, tplSheet, `__xte_${i}`, run.rt);
-			fillWorksheet(wb, ws, scope, fo);
+			fillWorksheet(wb, ws, scope, fo, tplRepeats);
 			clones.push({ ws, name });
 		}
 		const collection = collectionScope(run);
-		for (const ws of others) fillWorksheet(wb, ws, collection, fo);
+		for (const ws of others) fillWorksheet(wb, ws, collection, fo, otherRepeats.get(ws));
 		const order = (ws: Worksheet) => (ws as unknown as { orderNo: number }).orderNo;
 		const tplName = tplSheet.name;
 		const tplOrder = order(tplSheet);
@@ -239,15 +263,26 @@ export async function runExport(cd: CompiledDefinition, adapter: VaultAdapter, o
 		];
 		ordered.forEach((ws, i) => ((ws as unknown as { orderNo: number }).orderNo = i + 1));
 		const filename = def.output.filename ?? "{{@exportName}}.xlsx";
-		await writer.write(renderName(run, filename, collection, "output.filename"), await saveWorkbook(wb));
+		outputs.push({ fileName: renderName(run, filename, collection, "output.filename"), workbook: wb });
 	} else {
-		const wb = await loadWorkbook(template.slice(0));
-		unshareFormulas(wb);
+		const wb = await loadPreparedTemplate(template, cd, run);
 		const scope = collectionScope(run);
-		for (const ws of [...wb.worksheets]) fillWorksheet(wb, ws, scope, fo);
+		for (const ws of [...wb.worksheets]) fillWorksheet(wb, ws, scope, fo, repeats(wb, ws));
 		const filename = def.output.filename ?? "{{@exportName}}.xlsx";
-		await writer.write(renderName(run, filename, scope, "output.filename"), await saveWorkbook(wb));
+		outputs.push({ fileName: renderName(run, filename, scope, "output.filename"), workbook: wb });
 	}
 
-	return { files: writer.files, roots: run.roots.length, warnings: run.rt.report.warnings };
+	return { run, outputs, warnings: run.rt.report.warnings };
+}
+
+/** Saves the built workbooks into the vault, honoring `overwrite`. */
+export async function writeExport(built: BuiltExport, adapter: VaultAdapter, options: RunOptions = {}): Promise<ExportResult> {
+	const writer = new OutputWriter(adapter, built.run, options);
+	for (const out of built.outputs) await writer.write(out.fileName, await saveWorkbook(out.workbook));
+	return { files: writer.files, roots: built.run.roots.length, warnings: built.run.rt.report.warnings };
+}
+
+/** Runs a definition end to end and writes the resulting files. */
+export async function runExport(cd: CompiledDefinition, adapter: VaultAdapter, options: RunOptions = {}): Promise<ExportResult> {
+	return writeExport(await buildExport(cd, adapter, options), adapter, options);
 }

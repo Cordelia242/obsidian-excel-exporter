@@ -12,6 +12,7 @@ export interface ExportSettings {
 	emptyBlock: EmptyBlockMode;
 	openAfterExport: boolean;
 	overwrite: OverwriteMode;
+	previewBeforeExport: boolean;
 }
 
 export const DEFAULT_SETTINGS: ExportSettings = {
@@ -24,4 +25,5 @@ export const DEFAULT_SETTINGS: ExportSettings = {
 	emptyBlock: "remove",
 	openAfterExport: false,
 	overwrite: "ask",
+	previewBeforeExport: true,
 };

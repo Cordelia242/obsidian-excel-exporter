@@ -3,6 +3,7 @@ import { QueryError } from "../query/lexer";
 import { parseFilter, type Expr } from "../query/parser";
 import { parseSort, type SortKey } from "../query/sort";
 import type { NormalizeOptions } from "../values/normalize";
+import { compileMapping, type CompiledMapping } from "./mapping";
 
 export type ExportMode = "file-per-root" | "sheet-per-root" | "single";
 export type OverwriteMode = "ask" | "overwrite" | "suffix";
@@ -42,6 +43,10 @@ export interface ExportDefinition {
 	output: OutputDef;
 	normalize?: Partial<NormalizeOptions>;
 	emptyBlock?: EmptyBlockMode;
+	/** Setup mapping: `"Hoja!B2": "{{proceso.team}}"` (a bare path is wrapped in braces). */
+	cells: Record<string, string>;
+	/** Setup mapping: `"Hoja!7": "interviews"` repeats row 7 once per element. */
+	rows: Record<string, string>;
 }
 
 export interface CompiledRelation {
@@ -62,6 +67,7 @@ export interface CompiledDefinition {
 	sort: SortKey[];
 	/** Topologically ordered: sources before derived relations. */
 	relations: CompiledRelation[];
+	mapping: CompiledMapping;
 }
 
 export class ConfigError extends Error {
@@ -181,8 +187,26 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 
 	const emptyBlock = oneOf(raw.emptyBlock, ["remove", "blank"], "emptyBlock");
 
+	const stringMap = (key: "cells" | "rows"): Record<string, string> => {
+		const v = raw[key];
+		if (v === undefined || v === null) return {};
+		if (!isObj(v)) {
+			errors.push(`\`${key}\` debe ser un mapa celda → valor`);
+			return {};
+		}
+		const out: Record<string, string> = {};
+		for (const [k, val] of Object.entries(v)) {
+			if (val === null || val === undefined || val === "") continue;
+			if (typeof val !== "string") errors.push(`\`${key}.${k}\` debe ser texto`);
+			else out[k] = val;
+		}
+		return out;
+	};
+	const cells = stringMap("cells");
+	const rows = stringMap("rows");
+
 	if (errors.length) throw new ConfigError(errors);
-	return { name, template, root, mode, relations, output, normalize, emptyBlock };
+	return { name, template, root, mode, relations, output, normalize, emptyBlock, cells, rows };
 }
 
 /** Parses all filters/sorts/paths of a validated definition. */
@@ -266,6 +290,8 @@ export function compileDefinition(def: ExportDefinition): CompiledDefinition {
 	};
 	for (const name of compiled.keys()) visit(name, []);
 
+	const mapping = compileMapping(def.cells, def.rows, errors);
+
 	if (errors.length || !where) throw new ConfigError(errors.length ? errors : ["`root.where` es inválido"]);
-	return { def, where, filter: rootFilter, sort: rootSort, relations: ordered };
+	return { def, where, filter: rootFilter, sort: rootSort, relations: ordered, mapping };
 }

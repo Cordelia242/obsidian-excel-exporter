@@ -5,7 +5,7 @@ import { isDateOnly, scalarToText, type NormalizeOptions } from "../values/norma
 import type { Rendered } from "../values/pipes";
 import { copyMapper, insertionMapper, mapFormulaRefs, type RefMapper } from "./formulas";
 import { iterateCollection, renderTemplate, type CellTemplate, type RenderContext } from "./placeholders";
-import { scanWorksheet } from "./scanner";
+import { scanWorksheet, type EachSpec } from "./scanner";
 import { isFormulaValue, toExcelDate, type Workbook, type Worksheet } from "./workbook-io";
 
 export interface FillOptions {
@@ -108,9 +108,15 @@ function shiftImages(ws: Worksheet, at: number, delta: number): void {
 }
 
 /** Fills one worksheet: scalar placeholders first, then `#each` rows from bottom to top. */
-export function fillWorksheet(wb: Workbook, ws: Worksheet, scope: Scope, fo: FillOptions): void {
+export function fillWorksheet(
+	wb: Workbook,
+	ws: Worksheet,
+	scope: Scope,
+	fo: FillOptions,
+	rowRepeats?: Map<number, EachSpec>,
+): void {
 	const report = fo.rt.report;
-	const scan = scanWorksheet(ws);
+	const scan = scanWorksheet(ws, rowRepeats);
 	for (const issue of scan.issues) report.warn("other", issue.message, { location: `${ws.name}!${issue.address}` });
 	const tables = (ws as unknown as { tables?: Record<string, unknown> }).tables;
 	if (tables && Object.keys(tables).length && scan.eachRows.length) {

@@ -94,6 +94,14 @@ export class ExcelExportSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName("Previsualizar antes de exportar")
+			.setDesc("Muestra el Excel generado dentro de Obsidian y pide confirmación antes de guardarlo.")
+			.addToggle((t) => t.setValue(s.previewBeforeExport).onChange(async (v) => {
+				s.previewBeforeExport = v;
+				await save();
+			}));
+
+		new Setting(containerEl)
 			.setName("Abrir archivo al terminar")
 			.setDesc("Abre el .xlsx generado con la aplicación predeterminada (desktop).")
 			.addToggle((t) => t.setValue(s.openAfterExport).onChange(async (v) => {

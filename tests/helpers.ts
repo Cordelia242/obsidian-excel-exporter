@@ -139,3 +139,81 @@ output:
   sheetName: '{{proceso.file.name}}'
   overwrite: suffix
 `;
+
+/** Same layout as §14.1 but with EMPTY data cells: the data comes from the Setup mapping. */
+export async function procesoBlankTemplate(): Promise<ArrayBuffer> {
+	const wb = new ExcelJS.Workbook();
+	const ws = wb.addWorksheet("Proceso");
+	ws.columns = [
+		{ width: 28 }, { width: 16 }, { width: 22 }, { width: 34 },
+		{ width: 12 }, { width: 10 }, { width: 10 }, { width: 14 },
+	];
+	ws.getCell("A1").value = "Proceso";
+	ws.getCell("A1").font = { bold: true, size: 14 };
+	ws.mergeCells("B1:D1");
+	ws.getCell("A2").value = "Equipo";
+	ws.getCell("D2").value = "Rol";
+	ws.getCell("A3").value = "Seniority";
+	ws.getCell("D3").value = "Vacantes";
+	ws.getCell("A4").value = "Estado";
+	ws.getCell("D4").value = "Contratados";
+	["Candidato", "Seniority", "Stack", "LinkedIn", "Fecha", "Speech", "Tech", "Decisión"].forEach((h, i) => {
+		const c = ws.getCell(6, i + 1);
+		c.value = h;
+		c.fill = HEADER_FILL;
+		c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+	});
+	for (let c = 1; c <= 8; c++) {
+		const cell = ws.getCell(7, c);
+		cell.fill = ROW_FILL;
+		cell.border = { bottom: { style: "thin" } };
+	}
+	ws.getCell("E7").numFmt = "dd/mm/yyyy";
+	ws.getRow(7).height = 22;
+	ws.getCell("A8").value = "Promedio tech";
+	ws.getCell("G8").value = { formula: "AVERAGE(G7:G7)" } as ExcelJS.CellFormulaValue;
+	ws.mergeCells("A8:B8");
+	return saveWorkbook(wb);
+}
+
+export const MAPPING_YAML = `
+cells:
+  Proceso!B1: "{{proceso.file.name}}"
+  Proceso!B2: proceso.team
+  Proceso!E2: proceso.role
+  Proceso!B3: proceso.seniority
+  Proceso!E3: proceso.quantity
+  Proceso!B4: proceso.status
+  Proceso!E4: proceso.hires | count
+  Proceso!A7: interviews.interviewed
+  Proceso!B7: interviews.interviewed.seniority
+  Proceso!C7: interviews.interviewed.stack
+  Proceso!D7: interviews.interviewed.linkedin
+  Proceso!E7: interviews.date
+  Proceso!F7: interviews.speech rating | stars
+  Proceso!G7: interviews.tech rating | stars
+  Proceso!H7: interviews.decision
+rows:
+  Proceso!7: interviews
+`;
+
+/** §14.2 layout with empty data row (configured in Setup). */
+export async function consolidadoBlankTemplate(): Promise<ArrayBuffer> {
+	const wb = new ExcelJS.Workbook();
+	const ws = wb.addWorksheet("Consolidado");
+	ws.columns = [{ width: 24 }, { width: 14 }, { width: 10 }, { width: 22 }, { width: 8 }, { width: 12 }];
+	["Proceso", "Rol", "Prioridad", "Candidato", "Tech", "Decisión"].forEach((h, i) => {
+		const c = ws.getCell(1, i + 1);
+		c.value = h;
+		c.fill = HEADER_FILL;
+		c.font = { bold: true, color: { argb: "FFFFFFFF" } };
+	});
+	for (let c = 1; c <= 6; c++) {
+		ws.getCell(2, c).fill = ROW_FILL;
+		ws.getCell(2, c).border = { bottom: { style: "thin" } };
+	}
+	ws.getCell("A3").value = "Promedio tech";
+	ws.getCell("A3").font = { bold: true };
+	ws.getCell("E3").value = { formula: "AVERAGE(E2:E2)" } as ExcelJS.CellFormulaValue;
+	return saveWorkbook(wb);
+}
