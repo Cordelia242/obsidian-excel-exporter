@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { Modal, setIcon, type App } from "obsidian";
 
 export interface ComboOption {
 	value: string;
@@ -291,4 +291,19 @@ export function checklist(parent: HTMLElement, o: ChecklistOptions): void {
 	draw();
 	count.setText(`${selected.size} ${selected.size === 1 ? "elegido" : "elegidos"}`);
 	window.setTimeout(() => search.focus(), 50);
+}
+
+/** Confirmation dialog (instead of window.confirm). */
+export function confirmModal(app: App, title: string, text: string, confirmText: string, onConfirm: () => void | Promise<void>): void {
+	const modal = new Modal(app);
+	modal.titleEl.setText(title);
+	modal.contentEl.createEl("p", { text });
+	const footer = modal.contentEl.createDiv({ cls: "modal-button-container" });
+	button(footer, "Cancelar", () => modal.close());
+	const ok = button(footer, confirmText, () => {
+		modal.close();
+		void onConfirm();
+	});
+	ok.addClass("mod-warning");
+	modal.open();
 }

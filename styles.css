@@ -158,6 +158,27 @@
 	color: #137333;
 }
 
+/* Excel cell formatting (classes set by the grid renderer) */
+.xte-grid col.xte-col-head { width: 44px; }
+.xte-grid td { white-space: nowrap; }
+.xte-grid td.xte-wrap { white-space: pre-wrap; }
+.xte-grid td.xte-b { font-weight: bold; }
+.xte-grid td.xte-i { font-style: italic; }
+.xte-grid td.xte-u { text-decoration: underline; }
+.xte-grid td.xte-al-left { text-align: left; }
+.xte-grid td.xte-al-center { text-align: center; }
+.xte-grid td.xte-al-right { text-align: right; }
+.xte-grid td.xte-al-justify { text-align: justify; }
+.xte-grid td.xte-al-fill,
+.xte-grid td.xte-al-distributed { text-align: left; }
+.xte-grid td.xte-va-top { vertical-align: top; }
+.xte-grid td.xte-va-middle { vertical-align: middle; }
+.xte-grid td.xte-va-bottom { vertical-align: bottom; }
+.xte-grid td.xte-bt { border-top: 1px solid #444; }
+.xte-grid td.xte-br { border-right: 1px solid #444; }
+.xte-grid td.xte-bb { border-bottom: 1px solid #444; }
+.xte-grid td.xte-bl { border-left: 1px solid #444; }
+
 /* ---------- Preview modal ---------- */
 
 .xte-modal-wide {

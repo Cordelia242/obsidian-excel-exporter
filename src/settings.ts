@@ -30,7 +30,7 @@ export class ExcelExportSettingTab extends PluginSettingTab {
 				await save();
 			}));
 
-		containerEl.createEl("h3", { text: "Normalización" });
+		new Setting(containerEl).setName("Cómo se escriben los valores").setHeading();
 
 		new Setting(containerEl)
 			.setName("Links")
@@ -69,7 +69,7 @@ export class ExcelExportSettingTab extends PluginSettingTab {
 				await save();
 			}));
 
-		containerEl.createEl("h3", { text: "Exportación" });
+		new Setting(containerEl).setName("Exportación").setHeading();
 
 		new Setting(containerEl)
 			.setName("Fila #each vacía")

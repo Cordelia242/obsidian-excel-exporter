@@ -15,25 +15,26 @@ export interface RenderedGrid {
 	refreshCell: (address: string) => void;
 }
 
+/** Cell formatting from the Excel file: fixed choices as CSS classes, colors/sizes (data) via setCssStyles. */
 function applyStyle(td: HTMLTableCellElement, cell: GridCell): void {
 	const s = cell.style;
-	const css = td.style;
-	if (s.bold) css.fontWeight = "bold";
-	if (s.italic) css.fontStyle = "italic";
-	if (s.underline) css.textDecoration = "underline";
-	if (s.color) css.color = s.color;
-	if (s.bg) css.backgroundColor = s.bg;
-	if (s.size) css.fontSize = `${Math.round(s.size * 1.1)}px`;
-	css.textAlign = s.align ?? (cell.kind === "number" || cell.kind === "date" ? "right" : cell.kind === "bool" ? "center" : "left");
-	if (s.valign) css.verticalAlign = s.valign;
-	css.whiteSpace = s.wrap ? "pre-wrap" : "nowrap";
+	if (s.bold) td.addClass("xte-b");
+	if (s.italic) td.addClass("xte-i");
+	if (s.underline) td.addClass("xte-u");
+	if (s.wrap) td.addClass("xte-wrap");
+	const align = s.align ?? (cell.kind === "number" || cell.kind === "date" ? "right" : cell.kind === "bool" ? "center" : "left");
+	td.addClass(`xte-al-${align}`);
+	if (s.valign) td.addClass(`xte-va-${s.valign}`);
 	const b = s.borders;
-	if (b) {
-		if (b.top) css.borderTop = "1px solid #444";
-		if (b.right) css.borderRight = "1px solid #444";
-		if (b.bottom) css.borderBottom = "1px solid #444";
-		if (b.left) css.borderLeft = "1px solid #444";
-	}
+	if (b?.top) td.addClass("xte-bt");
+	if (b?.right) td.addClass("xte-br");
+	if (b?.bottom) td.addClass("xte-bb");
+	if (b?.left) td.addClass("xte-bl");
+	const dynamic: Partial<CSSStyleDeclaration> = {};
+	if (s.color) dynamic.color = s.color;
+	if (s.bg) dynamic.backgroundColor = s.bg;
+	if (s.size) dynamic.fontSize = `${Math.round(s.size * 1.1)}px`;
+	if (Object.keys(dynamic).length) td.setCssStyles(dynamic);
 }
 
 /** Renders a grid as an Excel-like HTML table. */
@@ -41,10 +42,11 @@ export function renderGrid(parent: HTMLElement, grid: Grid, o: GridRenderOptions
 	const wrap = parent.createDiv({ cls: "xte-grid-wrap" });
 	const table = wrap.createEl("table", { cls: "xte-grid" });
 	const colgroup = table.createEl("colgroup");
-	colgroup.createEl("col").style.width = "44px";
-	for (const c of grid.cols) colgroup.createEl("col").style.width = `${c.width}px`;
+	colgroup.createEl("col", { cls: "xte-col-head" });
+	// Column widths and row heights come from the Excel file.
+	for (const c of grid.cols) colgroup.createEl("col").setCssStyles({ width: `${c.width}px` });
 	// Fixed width so columns keep their Excel widths instead of shrinking to the container.
-	table.style.width = `${44 + grid.cols.reduce((sum, c) => sum + c.width, 0)}px`;
+	table.setCssStyles({ width: `${44 + grid.cols.reduce((sum, c) => sum + c.width, 0)}px` });
 	const head = table.createEl("thead").createEl("tr");
 	head.createEl("th", { cls: "xte-corner" });
 	for (const c of grid.cols) head.createEl("th", { text: c.letter });
@@ -57,6 +59,7 @@ export function renderGrid(parent: HTMLElement, grid: Grid, o: GridRenderOptions
 	const fill = (td: HTMLTableCellElement, cell: GridCell) => {
 		td.empty();
 		td.className = `xte-cell xte-kind-${cell.kind}`;
+		applyStyle(td, cell);
 		const custom = o.cellContent?.(cell);
 		if (custom) {
 			td.createSpan({ text: custom.text, cls: custom.cls });
@@ -69,7 +72,7 @@ export function renderGrid(parent: HTMLElement, grid: Grid, o: GridRenderOptions
 
 	for (const r of grid.rows) {
 		const tr = body.createEl("tr");
-		tr.style.height = `${r.height}px`;
+		tr.setCssStyles({ height: `${r.height}px` });
 		const extra = o.rowClass?.(r.index);
 		if (extra) tr.addClass(extra);
 		const th = tr.createEl("th", { text: String(r.index), cls: "xte-rowhead" });
@@ -82,7 +85,6 @@ export function renderGrid(parent: HTMLElement, grid: Grid, o: GridRenderOptions
 			const td = tr.createEl("td");
 			if (cell.rowSpan > 1) td.rowSpan = cell.rowSpan;
 			if (cell.colSpan > 1) td.colSpan = cell.colSpan;
-			applyStyle(td, cell);
 			fill(td, cell);
 			if (o.onCellClick) td.onclick = () => o.onCellClick?.(cell);
 			cells.set(cell.address, td);

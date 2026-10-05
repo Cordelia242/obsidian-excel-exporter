@@ -82,7 +82,7 @@ export class TemplateSession {
 		if (this.wbCache && this.wbCache.path === path) return this.wbCache.wb;
 		let wb: Workbook | null = null;
 		try {
-			if (path && (await this.app.vault.adapter.exists(path))) wb = await loadWorkbook(await this.app.vault.adapter.readBinary(path));
+			if (path && (await this.adapter.exists(path))) wb = await loadWorkbook(await this.adapter.readBinary(path));
 		} catch {
 			wb = null;
 		}

@@ -102,7 +102,7 @@ export async function renderStepOutput(el: HTMLElement, s: TemplateSession, rere
 	});
 
 	const folderBody = section(el, "Carpeta donde se guardan", undefined, "3");
-	const folders = s.app.vault.getAllLoadedFiles().filter((f) => "children" in f).map((f) => f.path).filter((p) => p && p !== "/").sort();
+	const folders = s.app.vault.getAllFolders(false).map((f) => f.path).sort();
 	combobox(folderBody, {
 		value: cfg.output.folder ?? s.plugin.settings.outputFolder,
 		allowCustom: true,

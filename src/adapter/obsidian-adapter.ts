@@ -36,7 +36,9 @@ export class ObsidianVaultAdapter implements VaultAdapter {
 	}
 
 	async readBinary(path: string): Promise<ArrayBuffer> {
-		return this.app.vault.adapter.readBinary(normalizePath(path));
+		const file = this.app.vault.getFileByPath(normalizePath(path));
+		if (!file) throw new Error(`No se encontró el archivo «${path}»`);
+		return this.app.vault.readBinary(file);
 	}
 
 	async writeBinary(path: string, data: ArrayBuffer, overwrite: boolean): Promise<void> {
@@ -55,7 +57,7 @@ export class ObsidianVaultAdapter implements VaultAdapter {
 	}
 
 	async exists(path: string): Promise<boolean> {
-		return this.app.vault.adapter.exists(normalizePath(path));
+		return this.app.vault.getAbstractFileByPath(normalizePath(path)) !== null;
 	}
 
 	vaultName(): string {

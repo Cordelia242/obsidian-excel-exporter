@@ -1,6 +1,6 @@
 {
   "name": "obsidian-excel-template-export",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Obsidian plugin that fills Excel (.xlsx) templates with note properties, including relations between notes.",
   "main": "main.js",
   "private": true,
@@ -9,7 +9,8 @@
     "build": "tsc --noEmit --skipLibCheck && node esbuild.config.mjs production",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [
     "obsidian",
@@ -30,5 +31,6 @@
     "typescript": "^7.0.2",
     "vitest": "^5.0.3",
     "yaml": "^2.9.1"
-  }
+  },
+  "author": "Cordelia242"
 }

@@ -1,22 +1,41 @@
-# Excel Template Export (Obsidian)
+# Excel Template Export
+
+Fill formatted Excel templates with data from your Obsidian notes, preview the result and export it as `.xlsx` files.
+
+- Keep your own Excel design (colors, column widths, merged cells, logos, formulas). The data cells can stay empty.
+- Choose which notes each export is about, for example a recruiting process, and pull in related notes that link to it, such as its interviews and the people interviewed.
+- Map cells visually: click a cell, pick where the data comes from and how to show it. Click a row to repeat it once per related note.
+- Pick the notes to export from a searchable list, then preview the workbook inside Obsidian before saving it.
+
+The user interface is currently in Spanish.
+
+![Templates](docs/images/gallery.png)
+![Cell editor](docs/images/cells.png)
+
+**Privacy:** the plugin works offline. It makes no network requests and only reads and writes files inside your vault.
+
+---
+
+## En español
 
 Plugin de Obsidian que llena templates de Excel (`.xlsx`) con las properties (frontmatter) de tus notas, **preservando el formato del template**: colores, anchos, celdas combinadas, logos y fórmulas.
 
 Sirve para:
 
-- **Una nota puntual:** exportar la nota activa.
-- **Un conjunto filtrado:** todas las notas que cumplan un filtro.
-- **Relaciones entre notas (joins):** traer las notas que apuntan a la raíz (backlinks) y navegar links hacia adelante. Por ejemplo: Proceso → Interviews → Persona.
+- **Una nota puntual**, por ejemplo la nota abierta.
+- **Varias notas** elegidas de una lista, o todas las que cumplen un filtro.
+- **Relaciones entre notas**: trae las notas que apuntan a cada una (por ejemplo las Interviews de un Proceso) y sigue sus links (la Persona entrevistada).
 
-> Estado: v0.1 (desktop). El core no depende de Node/Electron, así que mobile se puede habilitar más adelante.
+![Exportar](docs/images/export.png)
+![Vista previa](docs/images/preview.png)
 
----
+**Privacidad:** funciona sin conexión. No hace peticiones de red y solo lee y escribe archivos dentro de tu vault.
 
-## Instalación (manual)
+## Instalación
 
-1. `npm install && npm run build`
-2. Copia `main.js`, `manifest.json` y `styles.css` a `<vault>/.obsidian/plugins/excel-template-export/`.
-3. Activa el plugin en *Settings → Community plugins*.
+Desde Obsidian: *Settings → Community plugins → Browse*, busca «Excel Template Export» e instálalo.
+
+Manual: descarga `main.js`, `manifest.json` y `styles.css` de la [última release](../../releases/latest) y cópialos a `<vault>/.obsidian/plugins/excel-template-export/`.
 
 En [`examples/`](examples/) hay dos Excel de ejemplo (`Proceso.xlsx`, `Consolidado.xlsx`) y `templates.json` con dos templates ya configurados para ellos.
 
@@ -218,6 +237,15 @@ npm test          # Vitest, en Node, sin Obsidian
 npm run build     # typecheck + bundle (main.js)
 npm run dev       # watch
 ```
+
+### Publicar una versión nueva
+
+```bash
+npm version patch        # o minor / major: actualiza package.json, manifest.json y versions.json, y crea el tag
+git push && git push --tags
+```
+
+El workflow `Release Obsidian plugin` compila, prueba y crea un borrador de release con `main.js`, `manifest.json` y `styles.css`. Revisa las notas de la release y publícala; Obsidian ofrecerá la actualización a los usuarios.
 
 ```
 src/

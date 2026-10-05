@@ -4,8 +4,9 @@
  */
 
 // optional sheet prefix, then A1 or A1:B2 (with optional $). Not part of a longer token and not a function call.
+// The leading group replaces a lookbehind (not supported on older iOS).
 const REF_RE =
-	/(?<![A-Za-z0-9_.$'!])((?:'(?:[^']|'')+'|[A-Za-z_][A-Za-z0-9_.]*)!)?(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?::(\$?)([A-Za-z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(!])/g;
+	/(^|[^A-Za-z0-9_.$'!])((?:'(?:[^']|'')+'|[A-Za-z_][A-Za-z0-9_.]*)!)?(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?::(\$?)([A-Za-z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(!])/g;
 
 export interface RowRef {
 	row: number;
@@ -33,14 +34,14 @@ export function mapFormulaRefs(formula: string, formulaSheet: string, targetShee
 			if (idx % 2 === 1) return piece;
 			return piece.replace(
 				REF_RE,
-				(m, prefix: string | undefined, c1abs: string, c1: string, r1abs: string, r1: string, c2abs?: string, c2?: string, r2abs?: string, r2?: string) => {
+				(m, lead: string, prefix: string | undefined, c1abs: string, c1: string, r1abs: string, r1: string, c2abs?: string, c2?: string, r2abs?: string, r2?: string) => {
 					const sheet = sheetOf(prefix) ?? formulaSheet;
 					if (sheet.toLowerCase() !== targetSheet.toLowerCase()) return m;
 					const start = { row: Number(r1), absolute: r1abs === "$" };
 					const end = r2 !== undefined ? { row: Number(r2), absolute: r2abs === "$" } : null;
 					const res = mapper(start, end);
-					if (!res) return "#REF!";
-					let out = `${prefix ?? ""}${c1abs}${c1}${r1abs}${res.start}`;
+					if (!res) return `${lead}#REF!`;
+					let out = `${lead}${prefix ?? ""}${c1abs}${c1}${r1abs}${res.start}`;
 					if (end && res.end !== null) out += `:${c2abs}${c2}${r2abs}${res.end}`;
 					return out;
 				},

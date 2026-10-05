@@ -4,7 +4,7 @@ import { loadWorkbook } from "../../excel/workbook-io";
 import { compileTemplate, duplicateTemplate, newTemplateConfig, templateStatus, type TemplateConfig } from "../../store/templates";
 import { validateTemplate } from "../../export/validate";
 import type ExcelTemplateExportPlugin from "../../main";
-import { button, iconButton } from "../components";
+import { button, confirmModal, iconButton } from "../components";
 import { ExcelPickerModal } from "../excel-picker";
 import { ValidationModal } from "../report-modal";
 import { renderGrid } from "../sheet-render";
@@ -147,11 +147,12 @@ export class ManagerView extends ItemView {
 			);
 			menu.addSeparator();
 			menu.addItem((i) =>
-				i.setTitle("Eliminar").setIcon("trash-2").onClick(async () => {
-					if (!window.confirm(`¿Eliminar el template «${cfg.name}»? El archivo Excel no se borra.`)) return;
-					await this.plugin.deleteTemplate(cfg.id);
-					await this.render();
-				}),
+				i.setTitle("Eliminar").setIcon("trash-2").onClick(() =>
+					confirmModal(this.app, `¿Eliminar el template «${cfg.name}»?`, "El archivo Excel no se borra.", "Eliminar", async () => {
+						await this.plugin.deleteTemplate(cfg.id);
+						await this.render();
+					}),
+				),
 			);
 			const rect = top.getBoundingClientRect();
 			menu.showAtPosition({ x: rect.right, y: rect.bottom });
@@ -195,8 +196,9 @@ export class ManagerView extends ItemView {
 			return;
 		}
 		try {
-			if (!(await this.app.vault.adapter.exists(path))) throw new Error();
-			const wb = await loadWorkbook(await this.app.vault.adapter.readBinary(path));
+			const file = this.app.vault.getFileByPath(path);
+			if (!file) throw new Error();
+			const wb = await loadWorkbook(await this.app.vault.readBinary(file));
 			const ws = wb.worksheets[0];
 			const holder = createDiv({ cls: "xte-thumb-inner" });
 			renderGrid(holder, worksheetToGrid(ws, { maxRows: 14, maxCols: 8, minRows: 10, minCols: 6 }));
