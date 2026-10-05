@@ -1,7 +1,8 @@
 name: Release Obsidian plugin
 
-# Pushing a tag equal to the manifest version (e.g. 1.0.0) builds the plugin
-# and creates a draft GitHub release with main.js, manifest.json and styles.css.
+# Pushing a tag equal to the manifest version (e.g. 1.0.0) builds the plugin and
+# publishes a GitHub release with main.js, manifest.json and styles.css.
+# Release notes come from release-notes/<version>.md (or are generated from commits).
 on:
   push:
     tags:
@@ -51,7 +52,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag="${GITHUB_REF#refs/tags/}"
+          if [ -f "release-notes/$tag.md" ]; then
+            notes=(--notes-file "release-notes/$tag.md")
+          else
+            notes=(--generate-notes)
+          fi
           gh release create "$tag" \
             --title="$tag" \
-            --draft \
+            "${notes[@]}" \
             main.js manifest.json styles.css

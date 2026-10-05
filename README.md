@@ -245,7 +245,7 @@ npm version patch        # o minor / major: actualiza package.json, manifest.jso
 git push && git push --tags
 ```
 
-El workflow `Release Obsidian plugin` compila, prueba y crea un borrador de release con `main.js`, `manifest.json` y `styles.css`. Revisa las notas de la release y publícala; Obsidian ofrecerá la actualización a los usuarios.
+Antes, escribe las notas en `release-notes/<versión>.md` (si no existen, se generan a partir de los commits). El workflow `Release Obsidian plugin` prueba, compila y publica la release con `main.js`, `manifest.json` y `styles.css`; Obsidian ofrecerá la actualización a los usuarios.
 
 ```
 src/
