@@ -3,10 +3,13 @@ name: Release Obsidian plugin
 # Pushing a tag equal to the manifest version (e.g. 1.0.0) builds the plugin and
 # publishes a GitHub release with main.js, manifest.json and styles.css.
 # Release notes come from release-notes/<version>.md (or are generated from commits).
+# It can also be started from the Actions tab ("Run workflow"): the tag is then
+# taken from manifest.json and created by the release.
 on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -30,14 +33,25 @@ jobs:
           npm test
           npm run build
 
-      - name: Check tag matches manifest version
+      - name: Resolve release tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
           version=$(node -p "require('./manifest.json').version")
-          if [ "$tag" != "$version" ]; then
-            echo "Tag $tag does not match manifest.json version $version"
-            exit 1
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tag="$GITHUB_REF_NAME"
+            if [ "$tag" != "$version" ]; then
+              echo "Tag $tag does not match manifest.json version $version"
+              exit 1
+            fi
+          else
+            tag="$version"
+            if gh release view "$tag" >/dev/null 2>&1; then
+              echo "Release $tag already exists: bump the version in manifest.json first"
+              exit 1
+            fi
           fi
+          echo "TAG=$tag" >> "$GITHUB_ENV"
 
       # Attestations are only available for public repositories (or GitHub Enterprise).
       - name: Generate artifact attestation
@@ -53,13 +67,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
+          tag="$TAG"
           if [ -f "release-notes/$tag.md" ]; then
             notes=(--notes-file "release-notes/$tag.md")
           else
             notes=(--generate-notes)
           fi
           gh release create "$tag" \
+            --target "$GITHUB_SHA" \
             --title="$tag" \
             "${notes[@]}" \
             main.js manifest.json styles.css

@@ -245,6 +245,8 @@ npm version patch        # o minor / major: actualiza package.json, manifest.jso
 git push && git push --tags
 ```
 
+Otra opción, sin tags locales: sube el cambio de versión a `main` y en GitHub ve a *Actions → Release Obsidian plugin → Run workflow*. El workflow toma la versión de `manifest.json`, crea el tag y publica la release.
+
 Antes, escribe las notas en `release-notes/<versión>.md` (si no existen, se generan a partir de los commits). El workflow `Release Obsidian plugin` prueba, compila y publica la release con `main.js`, `manifest.json` y `styles.css`; Obsidian ofrecerá la actualización a los usuarios.
 
 ```
