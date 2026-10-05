@@ -354,7 +354,7 @@ export function fieldsAt(source: Source, trail: string[], ctx: CellContext): Fie
 			label: FILE_LABELS[f],
 			segs: [...prefix, "file", f],
 			kind: f === "ctime" || f === "mtime" ? "date" : "file",
-			sample: sample ? scalarToText(sample[f] as never) : "",
+			sample: sample ? scalarToText(sample[f]) : "",
 			navigable: false,
 			isList,
 		});

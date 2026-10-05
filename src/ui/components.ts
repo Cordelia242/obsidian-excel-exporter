@@ -1,4 +1,4 @@
-import { Modal, setIcon, type App } from "obsidian";
+import { Modal, Notice, setIcon, type App } from "obsidian";
 
 export interface ComboOption {
 	value: string;
@@ -188,21 +188,40 @@ export function choiceCards(parent: HTMLElement, cards: ChoiceCard[], value: str
 	}
 }
 
-export function iconButton(parent: HTMLElement, icon: string, label: string, onClick: () => void, cls = ""): HTMLButtonElement {
+/** A click handler that may be async. */
+export type Action = () => void | Promise<void>;
+
+/** Runs a possibly-async handler, reporting failures instead of leaving a floating promise. */
+export function runAction(action: Action): void {
+	try {
+		const result = action();
+		if (result instanceof Promise) {
+			result.catch((e: unknown) => {
+				console.error("Excel Template Export", e);
+				new Notice(`Excel Template Export: ${e instanceof Error ? e.message : String(e)}`);
+			});
+		}
+	} catch (e) {
+		console.error("Excel Template Export", e);
+		new Notice(`Excel Template Export: ${e instanceof Error ? e.message : String(e)}`);
+	}
+}
+
+export function iconButton(parent: HTMLElement, icon: string, label: string, onClick: Action, cls = ""): HTMLButtonElement {
 	const b = parent.createEl("button", { cls: `xte-icon-btn ${cls}`, attr: { "aria-label": label, title: label } });
 	setIcon(b, icon);
 	b.onclick = (ev) => {
 		ev.stopPropagation();
-		onClick();
+		runAction(onClick);
 	};
 	return b;
 }
 
-export function button(parent: HTMLElement, text: string, onClick: () => void, opts: { cta?: boolean; icon?: string; cls?: string } = {}): HTMLButtonElement {
+export function button(parent: HTMLElement, text: string, onClick: Action, opts: { cta?: boolean; icon?: string; cls?: string } = {}): HTMLButtonElement {
 	const b = parent.createEl("button", { cls: `${opts.cta ? "mod-cta " : ""}${opts.cls ?? ""}` });
 	if (opts.icon) setIcon(b.createSpan({ cls: "xte-btn-icon" }), opts.icon);
 	b.createSpan({ text });
-	b.onclick = () => onClick();
+	b.onclick = () => runAction(onClick);
 	return b;
 }
 

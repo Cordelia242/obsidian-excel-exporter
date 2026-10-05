@@ -82,7 +82,7 @@ function adjustFormulas(
 							{ location: `${ws.name}!${cell.address}` },
 						);
 					}
-					cell.value = { ...v, formula: next, result: undefined } as ExcelJS.CellFormulaValue;
+					cell.value = { ...v, formula: next, result: undefined };
 					wb.calcProperties = { ...wb.calcProperties, fullCalcOnLoad: true };
 				}
 			});
@@ -209,7 +209,7 @@ function expandRow(
 				writeRendered(cell, renderTemplate(tpl, scopes[i], ctx));
 			} else if (isFormulaValue(t.value) && "formula" in t.value && t.value.formula) {
 				const formula = mapFormulaRefs(t.value.formula, ws.name, ws.name, copyMapper(r, delta, i));
-				cell.value = { formula } as ExcelJS.CellFormulaValue;
+				cell.value = { formula, date1904: false };
 			} else {
 				cell.value = clone(t.value);
 			}

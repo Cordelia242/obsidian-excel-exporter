@@ -1,8 +1,8 @@
 {
 	"id": "excel-template-export",
 	"name": "Excel Template Export",
-	"version": "1.0.0",
-	"minAppVersion": "1.6.6",
+	"version": "1.0.1",
+	"minAppVersion": "1.7.2",
 	"description": "Fill formatted Excel templates with properties from your notes and their related notes, preview the result and export it as XLSX files.",
 	"author": "Cordelia242",
 	"authorUrl": "https://github.com/Cordelia242",

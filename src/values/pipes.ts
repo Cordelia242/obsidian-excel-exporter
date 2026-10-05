@@ -3,6 +3,7 @@ import { isNoteRecord, type NoteRecord } from "../model/note-record";
 import { LinkRef } from "./link";
 import {
 	formatDate,
+	anyToText,
 	isEmptyValue,
 	MISSING,
 	normalizeValue,
@@ -133,9 +134,9 @@ export function applyPipes(value: unknown, pipes: PipeCall[], ctx: PipeContext):
 				v = Array.isArray(v) ? v.filter((x) => !isEmptyValue(x)).length : isEmptyValue(v) ? 0 : 1;
 				break;
 			case "stars": {
-				const src = Array.isArray(v) ? v.find((x) => !isEmptyValue(x)) : v;
+				const src: unknown = Array.isArray(v) ? (v as unknown[]).find((x) => !isEmptyValue(x)) : v;
 				const n = src instanceof PlainText ? starsToNumber(src.text) : starsToNumber(src);
-				if (n === null && !isEmptyValue(src)) ctx.warn(`"${String(src)}" no es una calificación con estrellas`);
+				if (n === null && !isEmptyValue(src)) ctx.warn(`"${anyToText(src)}" no es una calificación con estrellas`);
 				v = n ?? MISSING;
 				break;
 			}

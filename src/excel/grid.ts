@@ -1,6 +1,6 @@
 import type ExcelJS from "exceljs";
 import { colLetters } from "../config/mapping";
-import { formatDate } from "../values/normalize";
+import { anyToText, formatDate } from "../values/normalize";
 import type { Worksheet } from "./workbook-io";
 
 export interface GridStyle {
@@ -98,7 +98,7 @@ export function cellDisplay(value: ExcelJS.CellValue, numFmt?: string): { text: 
 		}
 		if ("error" in value) return { text: String(value.error), kind: "error" };
 	}
-	return { text: String(value), kind: "text" };
+	return { text: anyToText(value), kind: "text" };
 }
 
 function styleOf(cell: ExcelJS.Cell): GridStyle {

@@ -120,7 +120,7 @@ export function openFile(app: App, path: string): void {
 
 /** Short notice after an export, with "Ver detalle" and "Abrir carpeta" when relevant. */
 export function showResultNotice(app: App, name: string, files: string[], warnings: ExportWarning[]): void {
-	const frag = document.createDocumentFragment();
+	const frag = createFragment();
 	const n = files.length;
 	const w = warnings.length;
 	frag.createSpan({

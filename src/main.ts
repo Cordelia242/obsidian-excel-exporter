@@ -132,7 +132,7 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 		const leaf = existing ?? this.app.workspace.getLeaf("tab");
 		if (existing) await (existing.view as ManagerView).navigate(route);
 		else await leaf.setViewState({ type: MANAGER_VIEW_TYPE, active: true, state: route });
-		this.app.workspace.revealLeaf(leaf);
+		await this.app.workspace.revealLeaf(leaf);
 	}
 
 	private pickTemplate(items: TemplateConfig[], onPick: (t: TemplateConfig) => void, placeholder = "¿Con qué template exportas?"): void {

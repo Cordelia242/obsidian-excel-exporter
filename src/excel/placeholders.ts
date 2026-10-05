@@ -133,7 +133,7 @@ export function renderTemplate(tpl: CellTemplate, scope: Scope, ctx: RenderConte
 	const phs = tpl.parts.filter((p) => p.kind === "ph");
 	if (tpl.parts.length === 0) return { value: null };
 	if (tpl.parts.length === 1 && phs.length === 1) {
-		return evaluatePlaceholder(phs[0] as Extract<Part, { kind: "ph" }>, scope, ctx);
+		return evaluatePlaceholder(phs[0], scope, ctx);
 	}
 	let text = "";
 	const links: string[] = [];

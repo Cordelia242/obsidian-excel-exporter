@@ -169,7 +169,7 @@ export function normalizeValue(v: unknown, opts: NormalizeOptions, warn?: WarnFn
 		warn?.(`Valor de tipo objeto exportado como JSON: ${JSON.stringify(v)}`);
 		return JSON.stringify(v);
 	}
-	return String(v);
+	return anyToText(v);
 }
 
 /** Like {@link normalizeValue} but without link cleanup or star/date parsing (`| raw`). */
@@ -184,6 +184,18 @@ export function rawValue(v: unknown, opts: NormalizeOptions): CellScalar {
 	if (v instanceof FileInfo) return v.basename;
 	if (v instanceof Date || typeof v === "number" || typeof v === "boolean" || typeof v === "string") return v;
 	return JSON.stringify(v);
+}
+
+/** Text for any value: primitives as-is, objects as JSON (never "[object Object]"). */
+export function anyToText(v: unknown): string {
+	if (typeof v === "string") return v;
+	if (typeof v === "number" || typeof v === "boolean" || typeof v === "bigint") return String(v);
+	if (v === null || v === undefined) return "";
+	try {
+		return JSON.stringify(v) ?? "";
+	} catch {
+		return "";
+	}
 }
 
 /** Text form of a cell scalar, used when a placeholder is mixed with other text. */

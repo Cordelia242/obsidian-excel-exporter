@@ -123,8 +123,9 @@
 	outline-offset: -1px;
 }
 
-.xte-grid td.is-selected {
-	outline: 2px solid #1a73e8 !important;
+.xte-cells-grid .xte-grid td.xte-cell.is-selected,
+.xte-grid td.xte-cell.is-selected {
+	outline: 2px solid #1a73e8;
 	outline-offset: -2px;
 }
 
@@ -203,8 +204,8 @@
 
 /* ================= Template manager ================= */
 
-.xte-manager {
-	padding: 0 !important;
+.workspace-leaf-content .view-content.xte-manager {
+	padding: 0;
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -249,31 +250,31 @@ button .xte-btn-icon + span {
 	vertical-align: middle;
 }
 
-.xte-icon-btn {
-	background: transparent !important;
-	box-shadow: none !important;
-	padding: 4px 6px !important;
+body button.xte-icon-btn {
+	background: transparent;
+	box-shadow: none;
+	padding: 4px 6px;
 	color: var(--text-muted);
 }
 
-.xte-icon-btn:hover {
+body button.xte-icon-btn:hover {
 	color: var(--text-normal);
-	background: var(--background-modifier-hover) !important;
+	background: var(--background-modifier-hover);
 }
 
-.xte-link-btn {
-	background: transparent !important;
-	box-shadow: none !important;
-	color: var(--text-accent) !important;
-	padding: 2px 4px !important;
+body button.xte-link-btn {
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-accent);
+	padding: 2px 4px;
 }
 
 .xte-link-btn:hover {
 	text-decoration: underline;
 }
 
-.xte-muted-btn {
-	color: var(--text-muted) !important;
+body button.xte-muted-btn {
+	color: var(--text-muted);
 }
 
 .xte-input-sm { width: 140px; }
@@ -443,24 +444,24 @@ button .xte-btn-icon + span {
 	border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.xte-title-input {
+body input.xte-title-input {
 	font-size: var(--font-ui-large);
 	font-weight: var(--font-semibold);
-	border: 1px solid transparent !important;
-	background: transparent !important;
+	border: 1px solid transparent;
+	background: transparent;
 	min-width: 180px;
 	flex: 0 1 340px;
 }
 
-.xte-title-input:hover,
-.xte-title-input:focus {
-	border-color: var(--background-modifier-border) !important;
-	background: var(--background-primary) !important;
+body input.xte-title-input:hover,
+body input.xte-title-input:focus {
+	border-color: var(--background-modifier-border);
+	background: var(--background-primary);
 }
 
-.xte-excel-chip {
+body button.xte-excel-chip {
 	font-size: var(--font-ui-small);
-	background: var(--background-secondary) !important;
+	background: var(--background-secondary);
 }
 
 .xte-editor-actions {
@@ -485,28 +486,28 @@ button .xte-btn-icon + span {
 	overflow-x: auto;
 }
 
-.xte-step {
-	background: transparent !important;
-	box-shadow: none !important;
+body button.xte-step {
+	background: transparent;
+	box-shadow: none;
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	padding: 6px 12px !important;
-	border-radius: 999px !important;
+	padding: 6px 12px;
+	border-radius: 999px;
 	color: var(--text-muted);
 	white-space: nowrap;
 	position: relative;
 }
 
-.xte-step:hover {
-	background: var(--background-modifier-hover) !important;
+body button.xte-step:hover {
+	background: var(--background-modifier-hover);
 }
 
-.xte-step.is-active {
-	background: var(--background-primary) !important;
+body button.xte-step.is-active {
+	background: var(--background-primary);
 	color: var(--text-normal);
 	font-weight: var(--font-semibold);
-	box-shadow: var(--shadow-xs) !important;
+	box-shadow: var(--shadow-xs);
 }
 
 .xte-step-num {
@@ -646,18 +647,18 @@ button .xte-btn-icon + span {
 	margin-bottom: var(--size-4-3);
 }
 
-.xte-suggest {
-	border-radius: 999px !important;
-	padding: 4px 10px !important;
+body button.xte-suggest {
+	border-radius: 999px;
+	padding: 4px 10px;
 	font-size: var(--font-ui-small);
 	display: inline-flex;
 	gap: 6px;
 	align-items: center;
 }
 
-.xte-suggest.is-selected {
-	background: var(--interactive-accent) !important;
-	color: var(--text-on-accent) !important;
+body button.xte-suggest.is-selected {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
 }
 
 .xte-suggest-count {
@@ -912,18 +913,18 @@ button .xte-btn-icon + span {
 	gap: var(--size-4-2);
 }
 
-.xte-rel-name {
+body input.xte-rel-name {
 	font-weight: var(--font-semibold);
 	font-size: var(--font-ui-medium);
-	border: 1px solid transparent !important;
-	background: transparent !important;
+	border: 1px solid transparent;
+	background: transparent;
 	flex: 1;
 }
 
-.xte-rel-name:hover,
-.xte-rel-name:focus {
-	border-color: var(--background-modifier-border) !important;
-	background: var(--background-primary) !important;
+body input.xte-rel-name:hover,
+body input.xte-rel-name:focus {
+	border-color: var(--background-modifier-border);
+	background: var(--background-primary);
 }
 
 .xte-subsets {
@@ -957,19 +958,19 @@ button .xte-btn-icon + span {
 	flex-wrap: wrap;
 }
 
-.xte-sheet-tab {
+body button.xte-sheet-tab {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	font-size: var(--font-ui-small);
-	border-radius: var(--radius-m) var(--radius-m) 0 0 !important;
-	border-bottom: 2px solid transparent !important;
+	border-radius: var(--radius-m) var(--radius-m) 0 0;
+	border-bottom: 2px solid transparent;
 }
 
-.xte-sheet-tab.is-active {
-	border-bottom-color: var(--interactive-accent) !important;
+body button.xte-sheet-tab.is-active {
+	border-bottom-color: var(--interactive-accent);
 	font-weight: var(--font-semibold);
-	background: var(--background-primary) !important;
+	background: var(--background-primary);
 }
 
 .xte-tab-count {
@@ -1312,15 +1313,15 @@ button .xte-btn-icon + span {
 	white-space: nowrap;
 }
 
-.xte-field-go {
-	background: transparent !important;
-	box-shadow: none !important;
-	color: var(--text-accent) !important;
+body button.xte-field-go {
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-accent);
 	font-size: var(--font-ui-smaller);
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
-	padding: 4px 8px !important;
+	padding: 4px 8px;
 	margin-right: 4px;
 }
 
@@ -1349,10 +1350,10 @@ button .xte-btn-icon + span {
 	margin: 6px 0;
 }
 
-.xte-token {
+body button.xte-token {
 	font-size: var(--font-ui-smaller);
-	padding: 2px 8px !important;
-	border-radius: 999px !important;
+	padding: 2px 8px;
+	border-radius: 999px;
 }
 
 .xte-example {
@@ -1446,26 +1447,26 @@ button .xte-btn-icon + span {
 	margin-bottom: 4px;
 }
 
-.xte-pill-btn {
+body button.xte-pill-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 2px;
-	border-radius: 999px !important;
-	padding: 4px 10px !important;
+	border-radius: 999px;
+	padding: 4px 10px;
 	font-size: var(--font-ui-small);
-	background: var(--background-primary) !important;
-	border: 1px solid var(--background-modifier-border) !important;
-	box-shadow: none !important;
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	box-shadow: none;
 }
 
-.xte-pill-btn:hover {
-	border-color: var(--text-faint) !important;
+body button.xte-pill-btn:hover {
+	border-color: var(--text-faint);
 }
 
-.xte-pill-btn.is-selected {
-	background: var(--interactive-accent) !important;
-	border-color: var(--interactive-accent) !important;
-	color: var(--text-on-accent) !important;
+body button.xte-pill-btn.is-selected {
+	background: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+	color: var(--text-on-accent);
 }
 
 .xte-pill-btn .xte-btn-icon svg {

@@ -101,7 +101,7 @@ function baseSpecials(run: PreparedRun): Record<string, unknown> {
 }
 
 export function rootScope(run: PreparedRun, root: NoteRecord, index: number): Scope {
-	const rels = run.rt.relationsOf(root) ?? new Map();
+	const rels = run.rt.relationsOf(root) ?? new Map<string, NoteRecord[]>();
 	return makeScope(
 		{ ...Object.fromEntries(rels), [run.cd.def.root.alias]: root },
 		{ ...baseSpecials(run), index: index + 1, count: run.roots.length },

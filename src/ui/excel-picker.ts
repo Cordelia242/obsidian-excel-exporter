@@ -1,5 +1,5 @@
 import { Modal, Notice, normalizePath, setIcon, type App, type TFile } from "obsidian";
-import { button } from "./components";
+import { button, runAction } from "./components";
 
 /** Saves an .xlsx chosen on the computer into the vault templates folder. Returns its vault path. */
 export async function importExcelFile(app: App, folder: string, file: File): Promise<string> {
@@ -24,7 +24,7 @@ export class ExcelPickerModal extends Modal {
 	constructor(
 		app: App,
 		private folder: string,
-		private onPick: (path: string, name: string) => void,
+		private onPick: (path: string, name: string) => void | Promise<void>,
 		private title = "Elige el archivo Excel",
 		private askName = false,
 	) {
@@ -77,7 +77,10 @@ export class ExcelPickerModal extends Modal {
 			const footer = contentEl.createDiv({ cls: "modal-button-container" });
 			button(footer, "Cancelar", () => this.close());
 			const create = button(footer, "Crear template", () => {
-				if (!chosen) return new Notice("Elige o sube un archivo Excel");
+				if (!chosen) {
+					new Notice("Elige o sube un archivo Excel");
+					return;
+				}
 				this.finish(chosen, nameInput?.value.trim() || (chosen.split("/").pop() ?? "").replace(/\.xlsx$/i, ""));
 			}, { cta: true });
 			create.addClass("xte-create");
@@ -106,7 +109,7 @@ export class ExcelPickerModal extends Modal {
 
 	private finish(path: string, name: string): void {
 		this.close();
-		this.onPick(path, name);
+		runAction(() => this.onPick(path, name));
 	}
 
 	onClose(): void {

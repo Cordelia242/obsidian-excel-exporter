@@ -20,8 +20,8 @@ export function renderCodeBlock(
 		return;
 	}
 	const def = compiled.def;
-	box.createEl("div", { text: def.name, cls: "xte-block-title" });
-	const meta = box.createEl("div", { cls: "xte-muted" });
+	box.createDiv({ text: def.name, cls: "xte-block-title" });
+	const meta = box.createDiv({ cls: "xte-muted" });
 	meta.createSpan({ text: `Template: ${def.template} · Modo: ${def.mode} · ` });
 	const count = meta.createSpan({ text: "contando raíces…" });
 	window.setTimeout(() => {
@@ -33,11 +33,11 @@ export function renderCodeBlock(
 		}
 	}, 0);
 	const rels = Object.keys(def.relations);
-	if (rels.length) box.createEl("div", { text: `Relaciones: ${rels.join(", ")}`, cls: "xte-muted" });
+	if (rels.length) box.createDiv({ text: `Relaciones: ${rels.join(", ")}`, cls: "xte-muted" });
 	const nCells = compiled.mapping.cells.length;
 	const nRows = compiled.mapping.rows.length;
 	if (nCells || nRows) {
-		box.createEl("div", {
+		box.createDiv({
 			text: `Setup: ${nCells} ${nCells === 1 ? "celda" : "celdas"}, ${nRows} ${nRows === 1 ? "fila repetida" : "filas repetidas"}`,
 			cls: "xte-muted",
 		});

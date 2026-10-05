@@ -90,7 +90,7 @@ export function step(value: unknown, seg: string, rt: Runtime): unknown {
 			const r = step(item, seg, rt);
 			if (r === MISSING) continue;
 			anyFound = true;
-			if (Array.isArray(r)) out.push(...r);
+			if (Array.isArray(r)) out.push(...(r as unknown[]));
 			else out.push(r);
 		}
 		return anyFound || value.length === 0 ? out : MISSING;

@@ -2,7 +2,7 @@ import { parsePath, PathError } from "../graph/path";
 import { QueryError } from "../query/lexer";
 import { parseFilter, type Expr } from "../query/parser";
 import { parseSort, type SortKey } from "../query/sort";
-import type { NormalizeOptions } from "../values/normalize";
+import { anyToText, type NormalizeOptions } from "../values/normalize";
 import { compileMapping, type CompiledMapping } from "./mapping";
 
 export type ExportMode = "file-per-root" | "sheet-per-root" | "single";
@@ -111,7 +111,7 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 	const oneOf = <T extends string>(v: unknown, allowed: T[], key: string): T | undefined => {
 		if (v === undefined || v === null) return undefined;
 		if (typeof v !== "string" || !allowed.includes(v as T)) {
-			errors.push(`\`${key}\` inválido: "${String(v)}". Valores permitidos: ${allowed.join(", ")}`);
+			errors.push(`\`${key}\` inválido: "${anyToText(v)}". Valores permitidos: ${allowed.join(", ")}`);
 			return undefined;
 		}
 		return v as T;
@@ -191,8 +191,8 @@ export function validateDefinition(raw: unknown): ExportDefinition {
 			if (links) normalize.links = links;
 			const stars = oneOf(n.stars, ["number", "raw"], "normalize.stars");
 			if (stars) normalize.stars = stars;
-			if (n.listSeparator !== undefined) normalize.listSeparator = String(n.listSeparator);
-			if (n.emptyValue !== undefined && n.emptyValue !== null) normalize.emptyValue = String(n.emptyValue);
+			if (n.listSeparator !== undefined) normalize.listSeparator = anyToText(n.listSeparator);
+			if (n.emptyValue !== undefined && n.emptyValue !== null) normalize.emptyValue = anyToText(n.emptyValue);
 		}
 	}
 

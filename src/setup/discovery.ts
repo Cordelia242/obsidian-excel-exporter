@@ -31,7 +31,7 @@ function kindOfValues(values: unknown[]): PropKind {
 	if (flat.some((a) => a instanceof LinkRef)) return "link";
 	if (flat.every((a) => typeof a === "number")) return "number";
 	if (flat.every((a) => typeof a === "boolean")) return "bool";
-	if (flat.every((a) => typeof a === "string" && /^[⭐½️\s]+$/.test(a))) return "stars";
+	if (flat.every((a) => typeof a === "string" && /^(?:\u2B50|½|\uFE0F|\s)+$/u.test(a))) return "stars";
 	if (flat.every((a) => typeof a === "string" && parseIsoDate(a))) return "date";
 	return "text";
 }
