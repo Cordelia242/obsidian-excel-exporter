@@ -39,7 +39,9 @@ jobs:
             exit 1
           fi
 
+      # Attestations are only available for public repositories (or GitHub Enterprise).
       - name: Generate artifact attestation
+        if: ${{ !github.event.repository.private }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
