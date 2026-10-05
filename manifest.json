@@ -1,0 +1,9 @@
+{
+	"id": "excel-template-export",
+	"name": "Excel Template Export",
+	"version": "0.1.0",
+	"minAppVersion": "1.4.0",
+	"description": "Fill Excel (.xlsx) templates with note properties, filtered note sets and related notes (joins).",
+	"author": "cordelia242",
+	"isDesktopOnly": true
+}

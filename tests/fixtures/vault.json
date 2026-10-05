@@ -1,0 +1,124 @@
+[
+  {
+    "path": "TH/Procesos/Proceso Backend Sr.md",
+    "ctime": 1772323200000,
+    "mtime": 1772323200000,
+    "frontmatter": {
+      "categories": ["[[Talent Acquisition Process]]", "[[TH]]"],
+      "team": "[[Celula X|Célula Pagos]]",
+      "created": "2026-03-01",
+      "role": "[[Roles/Backend|Back]]",
+      "seniority": "[[Experimentado]]",
+      "quantity": 2,
+      "status": "Open",
+      "priority": 5
+    }
+  },
+  {
+    "path": "TH/Procesos/Proceso Frontend.md",
+    "frontmatter": {
+      "categories": ["[[Talent Acquisition Process]]", "[[TH]]"],
+      "team": "[[Celula Y]]",
+      "created": "2026-01-15",
+      "role": "[[Frontend]]",
+      "seniority": "[[Junior]]",
+      "quantity": 1,
+      "status": "Closed",
+      "priority": 3
+    }
+  },
+  {
+    "path": "TH/Procesos/Proceso Data.md",
+    "frontmatter": {
+      "categories": ["[[Talent Acquisition Process]]"],
+      "created": "2026-02-10",
+      "role": "[[Data]]",
+      "quantity": 1,
+      "status": "On hold",
+      "priority": 8
+    }
+  },
+  {
+    "path": "People/Ana Torres.md",
+    "frontmatter": {
+      "categories": ["[[People]]"],
+      "seniority": "[[Experimentado]]",
+      "linkedin": "https://linkedin.com/in/ana-torres",
+      "role": "[[Applicant]]",
+      "stack": ["[[TypeScript]]", "[[Node]]"],
+      "loc": ["[[Bogotá]]"],
+      "past workplaces": ["[[Acme]]", "[[Globex]]"],
+      "birthday": "1994-07-12"
+    }
+  },
+  {
+    "path": "People/Bruno Díaz.md",
+    "frontmatter": {
+      "categories": ["[[People]]"],
+      "seniority": "[[Semi Senior]]",
+      "linkedin": "https://linkedin.com/in/bruno-diaz",
+      "role": "[[Backend]]",
+      "stack": ["[[Java]]"]
+    }
+  },
+  {
+    "path": "People/Carla Ruiz.md",
+    "frontmatter": {
+      "categories": ["[[People]]"],
+      "seniority": "[[Junior]]",
+      "stack": "[[React]]"
+    }
+  },
+  {
+    "path": "TH/Interviews/Interview Ana Torres - Proceso Backend Sr.md",
+    "frontmatter": {
+      "categories": ["[[Interview Evaluations]]", "[[TH]]", "[[Meetings]]"],
+      "date": "2026-03-05",
+      "people": ["[[Luis Pérez]]", "[[Marta Gómez]]"],
+      "interviewed": "[[Ana Torres]]",
+      "type": "[[Job Interviews]]",
+      "process": "[[Proceso Backend Sr]]",
+      "speech rating": "⭐⭐⭐",
+      "tech rating": "⭐⭐⭐⭐⭐",
+      "decision": "Hire"
+    }
+  },
+  {
+    "path": "TH/Interviews/Interview Bruno Díaz - Proceso Backend Sr.md",
+    "frontmatter": {
+      "categories": ["[[Interview Evaluations]]", "[[TH]]", "[[Meetings]]"],
+      "date": "2026-03-03",
+      "people": ["[[Luis Pérez]]"],
+      "interviewed": "[[Bruno Díaz]]",
+      "type": "[[Job Interviews]]",
+      "process": "[[Proceso Backend Sr]]",
+      "speech rating": "⭐⭐",
+      "tech rating": "⭐⭐⭐",
+      "decision": "Pending"
+    }
+  },
+  {
+    "path": "TH/Interviews/Interview Fantasma - Proceso Backend Sr.md",
+    "frontmatter": {
+      "categories": ["[[Interview Evaluations]]", "[[TH]]"],
+      "date": "2026-03-07",
+      "interviewed": "[[Persona Inexistente]]",
+      "process": "[[Proceso Backend Sr]]",
+      "speech rating": "⭐",
+      "tech rating": "⭐",
+      "decision": "Discard"
+    }
+  },
+  {
+    "path": "TH/Interviews/Interview Carla Ruiz - Proceso Frontend.md",
+    "frontmatter": {
+      "categories": ["[[Interview Evaluations]]", "[[TH]]", "[[Meetings]]"],
+      "date": "2026-01-20",
+      "interviewed": "[[Carla Ruiz]]",
+      "process": "[[Proceso Frontend]]",
+      "speech rating": "⭐⭐⭐⭐",
+      "tech rating": "⭐⭐⭐⭐",
+      "decision": "Hire"
+    }
+  }
+]

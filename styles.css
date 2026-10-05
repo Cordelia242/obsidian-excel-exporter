@@ -1,0 +1,60 @@
+.xte-block {
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-3);
+	background: var(--background-secondary);
+}
+
+.xte-block-error {
+	border-color: var(--text-error);
+}
+
+.xte-block-error pre {
+	color: var(--text-error);
+	white-space: pre-wrap;
+}
+
+.xte-block-title {
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-4-1);
+}
+
+.xte-muted {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+}
+
+.xte-block-buttons {
+	display: flex;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-2);
+}
+
+.xte-notice-actions {
+	display: flex;
+	gap: var(--size-4-3);
+	margin-top: var(--size-4-1);
+}
+
+.xte-table {
+	width: 100%;
+	font-size: var(--font-smaller);
+}
+
+.xte-table td {
+	padding: 2px 6px;
+	vertical-align: top;
+}
+
+.xte-unknown td,
+.xte-error td {
+	color: var(--text-error);
+}
+
+.xte-unresolved td {
+	color: var(--text-warning);
+}
+
+.xte-report-list li {
+	margin-bottom: var(--size-2-2);
+}
