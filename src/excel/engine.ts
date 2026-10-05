@@ -78,7 +78,7 @@ function adjustFormulas(
 					if (next.includes("#REF!") && !v.formula.includes("#REF!")) {
 						rt.report.warn(
 							"formula",
-							`La fórmula =${v.formula} quedó como =${next} porque la fila #each no tuvo elementos (usá emptyBlock: blank para conservarla)`,
+							`La fórmula =${v.formula} quedó como =${next} porque la fila #each no tuvo elementos (usa emptyBlock: blank para conservarla)`,
 							{ location: `${ws.name}!${cell.address}` },
 						);
 					}

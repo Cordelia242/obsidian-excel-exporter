@@ -128,7 +128,7 @@ export class SetupView extends ItemView {
 		const { file, index = 0 } = this.state;
 		const f = file ? this.app.vault.getAbstractFileByPath(file) : null;
 		if (!(f instanceof TFile)) {
-			root.createEl("p", { text: "Abrí el Setup desde el botón «Setup» de un bloque excel-export." });
+			root.createEl("p", { text: "Abre el Setup desde el botón «Setup» de un bloque excel-export." });
 			return;
 		}
 		this.file = f;
@@ -199,7 +199,7 @@ export class SetupView extends ItemView {
 		const tplLabel = bar.createEl("label", { text: "Template " });
 		const tplSelect = tplLabel.createEl("select", { cls: "dropdown" });
 		const xlsx = this.app.vault.getFiles().filter((f) => f.extension.toLowerCase() === "xlsx").map((f) => f.path).sort();
-		if (!xlsx.includes(cd.def.template)) tplSelect.createEl("option", { text: cd.def.template || "(elegí un .xlsx)", value: cd.def.template });
+		if (!xlsx.includes(cd.def.template)) tplSelect.createEl("option", { text: cd.def.template || "(elige un .xlsx)", value: cd.def.template });
 		for (const p of xlsx) tplSelect.createEl("option", { text: p, value: p });
 		tplSelect.value = cd.def.template;
 		tplSelect.onchange = () => void this.changeTemplate(tplSelect.value);
@@ -232,7 +232,7 @@ export class SetupView extends ItemView {
 
 		if (!this.wb) {
 			root.createDiv({ cls: "xte-setup-empty" }).createEl("p", {
-				text: `No se encontró el template "${cd.def.template}". Elegí un archivo .xlsx del vault en el selector de arriba.`,
+				text: `No se encontró el template "${cd.def.template}". Elige un archivo .xlsx del vault en el selector de arriba.`,
 			});
 			return;
 		}
@@ -335,8 +335,8 @@ export class SetupView extends ItemView {
 		const sel = this.selection;
 		if (!sel) {
 			panel.createEl("h4", { text: "Setup" });
-			panel.createEl("p", { text: "Hacé clic en una celda para elegir con qué dato se llena." });
-			panel.createEl("p", { text: "Hacé clic en el número de una fila para repetirla por cada elemento de una colección (por ejemplo, una fila por interview)." });
+			panel.createEl("p", { text: "Haz clic en una celda para elegir con qué dato se llena." });
+			panel.createEl("p", { text: "Haz clic en el número de una fila para repetirla por cada elemento de una colección (por ejemplo, una fila por interview)." });
 			const n = [...this.cells.keys()].filter((k) => k.startsWith(`${this.currentSheet()}!`)).length;
 			panel.createEl("p", { cls: "xte-muted", text: `${n} ${n === 1 ? "celda configurada" : "celdas configuradas"} en esta hoja.` });
 			return;
@@ -376,10 +376,10 @@ export class SetupView extends ItemView {
 			panel.createEl("p", { text: `En la nota de muestra: ${n} ${n === 1 ? "fila" : "filas"}.` });
 			panel.createEl("p", {
 				cls: "xte-muted",
-				text: `Ahora hacé clic en las celdas de esta fila y elegí campos dentro de «Fila: cada ${this.rowPath(row)?.slice(-1)[0] ?? current}».`,
+				text: `Ahora haz clic en las celdas de esta fila y elige campos dentro de «Fila: cada ${this.rowPath(row)?.slice(-1)[0] ?? current}».`,
 			});
 		}
-		if (!options.length) panel.createEl("p", { cls: "xte-muted", text: "La definición no tiene relaciones. Agregalas en el bloque YAML (relations)." });
+		if (!options.length) panel.createEl("p", { cls: "xte-muted", text: "La definición no tiene relaciones. Agrégalas en el bloque YAML (relations)." });
 	}
 
 	private renderCellPanel(panel: HTMLElement, row: number, col: number, address: string): void {
@@ -394,13 +394,13 @@ export class SetupView extends ItemView {
 		if (rowPath) panel.createDiv({ cls: "xte-pill", text: `↻ fila repetida por ${rowPath.join(".")}` });
 		const tplText = this.wb?.worksheets[this.sheetIdx]?.getCell(address).text;
 		if (tplText && !this.cells.has(key)) {
-			panel.createEl("p", { cls: "xte-muted", text: `Texto en el template: «${tplText}». Si elegís un campo, se reemplaza.` });
+			panel.createEl("p", { cls: "xte-muted", text: `Texto en el template: «${tplText}». Si eliges un campo, se reemplaza.` });
 		}
 
 		// Expression + format
 		const exprBox = panel.createDiv({ cls: "xte-expr" });
 		exprBox.createEl("label", { text: "Valor" });
-		const input = exprBox.createEl("input", { type: "text", value: expr, placeholder: "Elegí un campo abajo o escribí, ej. proceso.role" });
+		const input = exprBox.createEl("input", { type: "text", value: expr, placeholder: "Elige un campo abajo o escribe, ej. proceso.role" });
 		const isSingle = (e: string) => e.trim() !== "" && !e.includes("{{");
 		const split = (e: string) => {
 			const p = parseExpression(e);
@@ -456,7 +456,7 @@ export class SetupView extends ItemView {
 		};
 		exprBox.createDiv({
 			cls: "xte-muted",
-			text: "Para mezclar texto y datos escribí, por ejemplo: Rol: {{proceso.role}}",
+			text: "Para mezclar texto y datos escribe, por ejemplo: Rol: {{proceso.role}}",
 		});
 
 		// Field tree

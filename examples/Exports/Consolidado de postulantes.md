@@ -1,4 +1,4 @@
-Una fila por interview de cada proceso activo. Abrí **Setup** para ver o cambiar qué columna se llena con qué dato.
+Una fila por interview de cada proceso activo. Abre **Setup** para ver o cambiar qué columna se llena con qué dato.
 
 ```excel-export
 name: Postulantes en procesos activos

@@ -1,4 +1,4 @@
-Definición sin configurar: pulsá **Setup**, hacé clic en las celdas del Excel y elegí con qué dato se llenan.
+Definición sin configurar: pulsa **Setup**, haz clic en las celdas del Excel y elige con qué dato se llenan.
 
 ```excel-export
 name: Mi primer export

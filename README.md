@@ -15,17 +15,17 @@ Sirve para:
 ## Instalación (manual)
 
 1. `npm install && npm run build`
-2. Copiá `main.js`, `manifest.json` y `styles.css` a `<vault>/.obsidian/plugins/excel-template-export/`.
-3. Activá el plugin en *Settings → Community plugins*.
+2. Copia `main.js`, `manifest.json` y `styles.css` a `<vault>/.obsidian/plugins/excel-template-export/`.
+3. Activa el plugin en *Settings → Community plugins*.
 
 En [`examples/`](examples/) hay dos templates (`Proceso.xlsx`, `Consolidado.xlsx`) y sus definiciones listas para copiar al vault.
 
 ## Cómo funciona
 
-1. Diseñás un Excel normal **solo con títulos y formato** (las celdas de datos quedan vacías).
-2. Creás una **definición** (una nota con un bloque `excel-export`) que dice cuáles son las notas raíz, cómo se filtran y qué notas relacionadas traer.
-3. Abrís **Setup**: ves el Excel dentro de Obsidian, hacés clic en una celda y elegís con qué dato se llena. Hacés clic en el número de una fila para repetirla por cada interview, contratado, etc.
-4. **Ejecutar** genera el Excel y te muestra una **vista previa** dentro de Obsidian; si está bien, confirmás y se guarda.
+1. Diseñas un Excel normal **solo con títulos y formato** (las celdas de datos quedan vacías).
+2. Creas una **definición** (una nota con un bloque `excel-export`) que dice cuáles son las notas raíz, cómo se filtran y qué notas relacionadas traer.
+3. Abres **Setup**: ves el Excel dentro de Obsidian, haces clic en una celda y eliges con qué dato se llena. Haces clic en el número de una fila para repetirla por cada interview, contratado, etc.
+4. **Ejecutar** genera el Excel y te muestra una **vista previa** dentro de Obsidian; si está bien, confirmas y se guarda.
 
 También se pueden escribir placeholders directamente en las celdas del Excel (`{{proceso.role}}`, ver más abajo); ambos métodos se pueden combinar.
 
@@ -38,9 +38,9 @@ Botón **Setup** del bloque, o comando **Excel Export: Setup (configurar celdas 
   - **Campos disponibles**, descubiertos de tus notas: properties de la raíz (con un valor de ejemplo), relaciones (`interviews`, `hires`), links navegables (por ejemplo `interviews › interviewed › linkedin`), `file.*` y variables (`@today`, `@index`…). Buscador incluido.
   - **Formato**: tal cual, contar elementos, estrellas → número, fecha dd/MM/yyyy, primer elemento, lista con `;`, mayúsculas, hipervínculo a la nota…
   - **Muestra**: cómo queda el valor con la nota de muestra.
-  - Para mezclar texto y datos escribí, por ejemplo, `Rol: {{proceso.role}}`.
-- **Clic en el número de fila** → *Repetir esta fila por*: elegí la colección (`interviews`, `hires`, o en modo `single` `proceso` / `proceso.interviews`). Dentro de esa fila aparecen los campos de «Fila: cada interviews».
-- **Nota de muestra**: elegí con qué nota raíz probar.
+  - Para mezclar texto y datos escribe, por ejemplo, `Rol: {{proceso.role}}`.
+- **Clic en el número de fila** → *Repetir esta fila por*: elige la colección (`interviews`, `hires`, o en modo `single` `proceso` / `proceso.interviews`). Dentro de esa fila aparecen los campos de «Fila: cada interviews».
+- **Nota de muestra**: elige con qué nota raíz probar.
 - **Previsualizar** / **Exportar**.
 
 Los cambios se guardan solos en el bloque YAML de la nota (claves `cells` y `rows`):
@@ -59,7 +59,7 @@ Al guardar desde Setup el bloque se reescribe, así que los comentarios `#` del 
 
 ### Vista previa antes de exportar
 
-Al ejecutar un export se genera todo en memoria y se muestra dentro de Obsidian (selector de archivo y de hoja, warnings). Recién al pulsar **Exportar** se escriben los `.xlsx`. Se puede desactivar en settings (*Previsualizar antes de exportar*). Las fórmulas se muestran como `=FÓRMULA`: Excel las calcula al abrir el archivo.
+Al ejecutar un export se genera todo en memoria y se muestra dentro de Obsidian (selector de archivo y de hoja, warnings). Solo al pulsar **Exportar** se escriben los `.xlsx`. Se puede desactivar en settings (*Previsualizar antes de exportar*). Las fórmulas se muestran como `=FÓRMULA`: Excel las calcula al abrir el archivo.
 
 ### Definición
 
@@ -187,7 +187,7 @@ Las fechas se interpretan en hora local, sin corrimiento por zona horaria.
 
 ## Comandos
 
-- **Ejecutar export…**: elegís una definición y la corre.
+- **Ejecutar export…**: eliges una definición y la corre.
 - **Exportar nota activa con…**: muestra las definiciones cuyo `root.where` coincide con la nota activa (si ninguna coincide, muestra todas con aviso) y exporta solo esa nota. También está en el menú contextual de las notas: *Exportar a Excel con…*.
 - **Setup (configurar celdas del Excel)…**: editor visual (ver arriba).
 - **Validar template…**: lista placeholders y filas `#each`, colecciones desconocidas y paths que no resuelven contra la primera raíz.
@@ -214,7 +214,7 @@ Después de exportar aparece un aviso (`3 archivos generados, 2 warnings`) con *
 
 ## Limitaciones conocidas (v1)
 
-- **Fórmulas:** al insertar filas se ajustan las referencias A1 de la misma hoja (y las de otras hojas con prefijo `Hoja!`): las de abajo se desplazan y los rangos que contienen la fila plantilla se expanden (`AVERAGE(G7:G7)` → `AVERAGE(G7:G9)`). Si la fila `#each` queda sin elementos y se elimina, las referencias a esa fila quedan en `#REF!` (como en Excel) y se avisa en el reporte; usá `emptyBlock: blank` para conservarla. Referencias de filas completas (`7:7`), nombres estructurados y fórmulas matriciales no se ajustan.
+- **Fórmulas:** al insertar filas se ajustan las referencias A1 de la misma hoja (y las de otras hojas con prefijo `Hoja!`): las de abajo se desplazan y los rangos que contienen la fila plantilla se expanden (`AVERAGE(G7:G7)` → `AVERAGE(G7:G9)`). Si la fila `#each` queda sin elementos y se elimina, las referencias a esa fila quedan en `#REF!` (como en Excel) y se avisa en el reporte; usa `emptyBlock: blank` para conservarla. Referencias de filas completas (`7:7`), nombres estructurados y fórmulas matriciales no se ajustan.
 - Conviene ubicar el bloque `#each` al final de la hoja.
 - **Formato condicional y validaciones de datos** no se desplazan (se avisa).
 - **Celdas combinadas** que cruzan verticalmente una fila `#each` se descombinan (con warning).

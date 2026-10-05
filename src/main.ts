@@ -84,7 +84,7 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 		const list = entries ?? (await findDefinitions(this.app, this.settings.definitionsFolder));
 		if (!list.length) {
 			new Notice(
-				`Excel Export: no hay definiciones en "${this.settings.definitionsFolder || "el vault"}". Usá "Nueva definición".`,
+				`Excel Export: no hay definiciones en "${this.settings.definitionsFolder || "el vault"}". Usa "Nueva definición".`,
 			);
 			return;
 		}
@@ -180,7 +180,7 @@ export default class ExcelTemplateExportPlugin extends Plugin {
 		const base = folder === "/" ? "" : `${folder}/`;
 		let path = `${base}Nueva definición.md`;
 		for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = `${base}Nueva definición ${i}.md`;
-		const content = `Definición de export a Excel. Ajustá \`root\` y \`relations\`, elegí el template y usá **Setup** para indicar qué dato va en cada celda.\n\n\`\`\`${CODEBLOCK_LANG}\n${EXAMPLE_DEFINITION}\`\`\`\n`;
+		const content = `Definición de export a Excel. Ajusta \`root\` y \`relations\`, elige el template y usa **Setup** para indicar qué dato va en cada celda.\n\n\`\`\`${CODEBLOCK_LANG}\n${EXAMPLE_DEFINITION}\`\`\`\n`;
 		const file = await this.app.vault.create(path, content);
 		await this.app.workspace.getLeaf(true).openFile(file);
 	}

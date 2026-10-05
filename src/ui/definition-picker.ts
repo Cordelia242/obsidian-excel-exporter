@@ -44,7 +44,7 @@ export class DefinitionPicker extends FuzzySuggestModal<DefinitionEntry> {
 		app: App,
 		private entries: DefinitionEntry[],
 		private onPick: (entry: DefinitionEntry) => void,
-		placeholder = "Elegí una definición de export…",
+		placeholder = "Elige una definición de export…",
 	) {
 		super(app);
 		this.setPlaceholder(placeholder);
