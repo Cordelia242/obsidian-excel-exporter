@@ -87,5 +87,60 @@
 		"rows": {
 			"Consolidado!2": "proceso.interviews"
 		}
+	},
+	{
+		"id": "ficha-completa",
+		"name": "Ficha de proceso completa",
+		"description": "Detalles del proceso, resumen y descripción en una hoja; postulantes y sus propiedades en otra",
+		"template": "Templates/Excel/Ficha de proceso completa.xlsx",
+		"root": {
+			"alias": "proceso",
+			"label": "Proceso",
+			"where": "categories contains \"Talent Acquisition Process\"",
+			"filter": "status != \"Closed\"",
+			"sort": "created desc"
+		},
+		"mode": "file-per-root",
+		"emptyBlock": "blank",
+		"relations": {
+			"interviews": {
+				"label": "Interviews",
+				"from": "categories contains \"Interview Evaluations\"",
+				"on": "process -> proceso",
+				"sort": "date asc"
+			}
+		},
+		"output": {
+			"folder": "Exports/out",
+			"filename": "{{proceso.file.name}} - ficha {{@today | date:\"yyyy-MM-dd\"}}.xlsx",
+			"overwrite": "ask"
+		},
+		"cells": {
+			"Proceso!C2": "@today",
+			"Proceso!C5": "proceso.file.name",
+			"Proceso!F5": "proceso.status",
+			"Proceso!C6": "proceso.team",
+			"Proceso!F6": "proceso.priority",
+			"Proceso!C7": "proceso.role",
+			"Proceso!F7": "proceso.quantity",
+			"Proceso!C8": "proceso.seniority",
+			"Proceso!F8": "proceso.created",
+			"Postulantes!C2": "proceso.file.name",
+			"Postulantes!A5": "@index",
+			"Postulantes!B5": "interviews.interviewed",
+			"Postulantes!C5": "interviews.interviewed.seniority",
+			"Postulantes!D5": "interviews.interviewed.role",
+			"Postulantes!E5": "interviews.interviewed.stack",
+			"Postulantes!F5": "interviews.interviewed.loc",
+			"Postulantes!G5": "interviews.interviewed.linkedin",
+			"Postulantes!H5": "interviews.interviewed.github",
+			"Postulantes!I5": "interviews.date",
+			"Postulantes!J5": "interviews.speech rating",
+			"Postulantes!K5": "interviews.tech rating",
+			"Postulantes!L5": "interviews.decision"
+		},
+		"rows": {
+			"Postulantes!5": "interviews"
+		}
 	}
 ]
